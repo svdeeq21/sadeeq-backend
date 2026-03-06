@@ -62,7 +62,7 @@ async def process_inbound_message(payload: WAWebhookPayload) -> None:
         db.table("leads")
         .select("id, name, status, ai_paused")
         .eq("phone_number", phone_number)
-        .maybe_single()
+        .single()
         .execute()
     )
 
