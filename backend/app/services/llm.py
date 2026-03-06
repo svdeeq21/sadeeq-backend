@@ -136,7 +136,7 @@ async def _try_huggingface(prompt: str) -> str:
     Raises on any error.
     """
     model  = settings.huggingface_model
-    url    = f"https://api-inference.huggingface.co/models/{model}"
+    url    = f"https://router.huggingface.co/hf-inference/models/{model}"
 
     headers = {
         "Authorization": f"Bearer {settings.huggingface_api_key}",
