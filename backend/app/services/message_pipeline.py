@@ -36,7 +36,7 @@ async def process_inbound_message(payload: WAWebhookPayload) -> None:
 
     # ── Extract message data ──────────────────────────────────────
     wa_data       = payload.data
-    phone_number  = wa_data.key.get("remoteJid", "").replace("@s.whatsapp.net", "")
+    phone_number = wa_data.key.get("remoteJid", "").replace("@s.whatsapp.net", "").lstrip("+")
     wa_message_id = wa_data.key.get("id")
     message_type  = wa_data.messageType
     lead_name     = wa_data.pushName or "there"
