@@ -22,13 +22,6 @@ settings = get_settings()
 # We verify it here before touching any payload data.
 
 async def verify_webhook_signature(request: Request) -> bytes:
-    """
-    Reads and returns the raw request body after verifying the
-    Evolution API HMAC-SHA256 signature.
-
-    Raises HTTP 401 if the signature is missing or invalid.
-    Raises HTTP 400 if the body is empty.
-    """
     raw_body = await request.body()
 
     if not raw_body:
@@ -42,17 +35,9 @@ async def verify_webhook_signature(request: Request) -> bytes:
             detail="Missing X-Hub-Signature-256 header",
         )
 
-    # Compute expected signature
-    expected = hmac.new(
-        key=settings.webhook_secret.encode("utf-8"),
-        msg=raw_body,
-        digestmod=hashlib.sha256,
-    ).hexdigest()
+    expected = f"sha256={settings.webhook_secret}"
 
-    expected_header = f"sha256={expected}"
-
-    # Constant-time comparison prevents timing attacks
-    if not hmac.compare_digest(expected_header, signature_header):
+    if signature_header != expected:
         raise HTTPException(
             status_code=401,
             detail="Invalid webhook signature",
