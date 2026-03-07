@@ -9,6 +9,8 @@ from app.utils.logger import log
 
 
 async def process_inbound_message(payload: WAWebhookPayload) -> None:
+    import logging
+    logging.getLogger("uvicorn").info(f"[PIPELINE_START] raw payload received")
     pipeline_start = time.monotonic()
     db = get_supabase()
 
