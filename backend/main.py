@@ -1,15 +1,4 @@
 # svdeeq-backend/main.py
-#
-# FastAPI application entry point.
-# Mounts all routers and configures startup behaviour.
-#
-# To run locally:
-#   uvicorn main:app --reload --port 8000
-
-# svdeeq-backend/main.py  (updated — replace your existing main.py with this)
-#
-# Added: custom HTTP exception handler so 409 duplicate responses
-# return a JSON body containing lead_id, which Apps Script reads.
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +6,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import HTTPException as FastAPIHTTPException
 from app.core.config import get_settings
 from app.routers import webhook, leads, health
+from app.services.scheduler import start_scheduler, stop_scheduler  # NEW
 
 settings = get_settings()
 
@@ -31,7 +21,7 @@ app = FastAPI(
 # ── CORS ─────────────────────────────────────────────────────────
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "https://svdeeq-crm.vercel.app",  # replace with your Vercel URL
+    "https://svdeeq-crm.vercel.app",
 ]
 
 app.add_middleware(
@@ -43,13 +33,9 @@ app.add_middleware(
 )
 
 # ── Custom exception handler ──────────────────────────────────────
-# Ensures 409 duplicate responses include lead_id in the body
-# so the Apps Script can record it in the sheet.
-
 @app.exception_handler(FastAPIHTTPException)
 async def http_exception_handler(request, exc: FastAPIHTTPException):
     body = {"detail": exc.detail}
-    # For 409 duplicates, surface the lead_id from the response header
     if exc.status_code == 409 and exc.headers and "X-Lead-Id" in exc.headers:
         body["lead_id"] = exc.headers["X-Lead-Id"]
     return JSONResponse(
@@ -57,6 +43,16 @@ async def http_exception_handler(request, exc: FastAPIHTTPException):
         content=body,
         headers=dict(exc.headers) if exc.headers else {},
     )
+
+# ── Startup / Shutdown ────────────────────────────────────────────
+@app.on_event("startup")
+async def startup_event():
+    start_scheduler()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    stop_scheduler()
 
 # ── Routers ───────────────────────────────────────────────────────
 app.include_router(health.router)
