@@ -1,26 +1,9 @@
 # svdeeq-backend/app/services/escalation.py
-#
-# Decides when to escalate a lead to a human agent and stops the AI.
-#
-# Escalation triggers (PRD §2.2):
-#   1. LLM returned a fallback (quota/error)
-#   2. No RAG chunks found (confidence below threshold)
-#   3. Incoming message contains media (image, audio, document)
-#   4. User explicitly asks to speak to a human
-#   5. Admin manually pauses AI via dashboard (ai_paused=TRUE in DB)
-#
-# When escalated:
-#   - lead.status → HUMAN_REQUIRED
-#   - lead.ai_paused → TRUE  (AI will not reply until admin resumes)
-#   - A SYSTEM message is written to the messages table
-#   - An audit log entry is created
-#   - (Future: push notification to admin)
 
 from uuid import UUID
 from app.core.supabase import get_supabase
 from app.utils.logger import log
 
-# Keywords that signal the user wants a human
 HUMAN_REQUEST_PHRASES = [
     "speak to a human",
     "talk to a person",
@@ -31,9 +14,10 @@ HUMAN_REQUEST_PHRASES = [
     "phone me",
     "transfer me",
     "escalate",
+    "speak to sadiq",
+    "talk to sadiq",
 ]
 
-# Media message types from Evolution API that we can't handle
 MEDIA_MESSAGE_TYPES = {
     "imageMessage",
     "audioMessage",
@@ -42,24 +26,30 @@ MEDIA_MESSAGE_TYPES = {
     "stickerMessage",
 }
 
+MEDIA_REPLIES = {
+    "imageMessage":    "Thanks for sharing that image! I'm not able to view images directly — could you describe what you're looking for in text? I'd love to help.",
+    "audioMessage":    "I appreciate the voice note! I'm not able to play audio — could you type out your message? I'm all ears.",
+    "videoMessage":    "Thanks for the video! I can't play videos directly — feel free to describe what you need and I'll do my best to help.",
+    "documentMessage": "Thanks for sending that document! I'm not able to open files — if you can summarise what you need, I'll take it from there.",
+    "stickerMessage":  None,  # ignore stickers silently
+}
+
 
 def is_media_message(message_type: str) -> bool:
-    """Returns True if Evolution API says this is a non-text message."""
     return message_type in MEDIA_MESSAGE_TYPES
 
 
 def user_requested_human(message_text: str) -> bool:
-    """Returns True if the user's message contains a human-request phrase."""
     lower = message_text.lower()
     return any(phrase in lower for phrase in HUMAN_REQUEST_PHRASES)
 
 
+def get_media_reply(message_type: str) -> str | None:
+    """Returns a polite text reply for media messages, or None to ignore."""
+    return MEDIA_REPLIES.get(message_type)
+
+
 async def check_ai_paused(lead_id: UUID) -> bool:
-    """
-    Checks the ai_paused flag in the leads table.
-    Called at step 3 of the pipeline — before any processing begins.
-    Returns True if the AI should stay silent for this lead.
-    """
     db = get_supabase()
     result = (
         db.table("leads")
@@ -77,27 +67,20 @@ async def escalate(
     metadata: dict | None = None,
 ) -> None:
     """
-    Escalates a lead to HUMAN_REQUIRED status.
-    Writes a SYSTEM message to the conversation and logs the event.
-
-    reason: short string like "MEDIA_REQUEST", "LLM_QUOTA", "NO_RAG_MATCH",
-            "HUMAN_REQUESTED", "REPEATED_LLM_FAILURE"
+    Only escalates for real reasons — NOT for media or missing RAG.
+    Those are handled gracefully in the pipeline now.
     """
     db = get_supabase()
 
-    # Update lead status and pause AI
     db.table("leads").update({
         "status":    "HUMAN_REQUIRED",
         "ai_paused": True,
     }).eq("id", str(lead_id)).execute()
 
-    # Write a SYSTEM message to the transcript so admins can see why
     reason_messages = {
-        "MEDIA_REQUEST":        "Media/file request received — AI cannot process attachments. Escalated to agent.",
-        "LLM_QUOTA":            "AI quota exhausted — fallback response sent. Escalated to agent.",
-        "NO_RAG_MATCH":         "Query outside knowledge base — confidence too low. Escalated to agent.",
-        "HUMAN_REQUESTED":      "Lead requested a human agent. AI stopped.",
-        "REPEATED_LLM_FAILURE": "Repeated LLM errors — escalated to agent.",
+        "LLM_ALL_PROVIDERS_FAILED": "All AI providers failed — fallback used. Review needed.",
+        "HUMAN_REQUESTED":          "Lead requested to speak with Sadiq directly. AI stopped.",
+        "REPEATED_LLM_FAILURE":     "Repeated LLM errors — escalated to agent.",
     }
     system_message = reason_messages.get(reason, f"Escalated: {reason}")
 

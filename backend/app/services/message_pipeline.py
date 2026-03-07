@@ -13,7 +13,6 @@ _l = logging.getLogger("svdeeq")
 
 
 async def process_inbound_message(payload: WAWebhookPayload) -> None:
-    """Wrapper that catches all exceptions so Render logs show the crash."""
     _l.info("[PIPELINE_START] background task started")
     try:
         await _process(payload)
@@ -43,11 +42,10 @@ async def _process(payload: WAWebhookPayload) -> None:
         await log.warn("WEBHOOK_MISSING_PHONE", metadata={"payload": str(payload)[:200]})
         return
 
-    # Skip group messages
     if "@g.us" in wa_data.key.get("remoteJid", ""):
         return
 
-    # ── Find lead by phone number ─────────────────────────────────
+    # ── Find lead ─────────────────────────────────────────────────
     lead_result = (
         db.table("leads")
         .select("id, name, status, ai_paused")
@@ -73,7 +71,6 @@ async def _process(payload: WAWebhookPayload) -> None:
                 .execute()
             )
             if existing.data:
-                await log.debug("DUPLICATE_MESSAGE_SKIPPED", lead_id=lead_id)
                 return
         except Exception:
             pass
@@ -83,7 +80,7 @@ async def _process(payload: WAWebhookPayload) -> None:
         "lead_id":       str(lead_id),
         "sender":        "USER",
         "content":       message_text or f"[{message_type}]",
-        "message_type":  "TEXT" if message_text else message_type.upper()[:20],
+        "message_type":  "TEXT" if message_text else "SYSTEM_EVENT",
         "wa_message_id": wa_message_id,
     }).execute()
 
@@ -103,9 +100,12 @@ async def _process(payload: WAWebhookPayload) -> None:
     except Exception as e:
         await log.warn("RATE_LIMIT_CHECK_FAILED", lead_id=lead_id, metadata={"error": str(e)})
 
-    # ── Handle media messages ─────────────────────────────────────
+    # ── Handle media messages gracefully ──────────────────────────
     if escalation.is_media_message(message_type):
-        await escalation.escalate(lead_id, "MEDIA_REQUEST", {"message_type": message_type})
+        reply = escalation.get_media_reply(message_type)
+        if reply:
+            await whatsapp.send_message(phone_number, reply, lead_id)
+            await log.info("MEDIA_REPLIED", lead_id=lead_id, metadata={"type": message_type})
         return
 
     # ── Handle STOP ───────────────────────────────────────────────
@@ -119,7 +119,7 @@ async def _process(payload: WAWebhookPayload) -> None:
         await escalation.escalate(lead_id, "HUMAN_REQUESTED")
         await whatsapp.send_message(
             phone_number,
-            "Of course! I'll connect you with Sadiq shortly.",
+            "Of course! I'll let Sadiq know and he'll reach out to you directly.",
             lead_id,
         )
         return
@@ -137,26 +137,10 @@ async def _process(payload: WAWebhookPayload) -> None:
         context.rag_chunks = rag_chunks
     except Exception as e:
         await log.warn("RAG_FAILED", lead_id=lead_id, metadata={"error": str(e)})
-        rag_chunks = []
         context.rag_chunks = []
+        rag_chunks = []
 
-    greetings = {"hi", "hello", "hey", "salam", "good morning", "good afternoon", "good evening"}
-    is_greeting = message_text.strip().lower() in greetings
-
-    # if not rag_chunks and not is_greeting:
-    #     await escalation.escalate(
-    #         lead_id,
-    #         "NO_RAG_MATCH",
-    #         {"query_preview": message_text[:80]},
-    #     )
-    #     await whatsapp.send_message(
-    #         phone_number,
-    #         "That's a great question — let me get Sadiq to follow up with you on that.",
-    #         lead_id,
-    #     )
-    #     return
-
-    # ── Call LLM ──────────────────────────────────────────────────
+    # ── Call LLM (always — RAG is optional context) ───────────────
     try:
         reply_text, provider_used = await llm.generate_reply(context, message_text)
     except Exception as e:
@@ -189,7 +173,6 @@ async def _process(payload: WAWebhookPayload) -> None:
 
     # ── Log result ────────────────────────────────────────────────
     top_score = rag_chunks[0].similarity if rag_chunks else 0.0
-
     await log.info(
         "AI_REPLIED",
         lead_id=lead_id,
