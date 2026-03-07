@@ -1,63 +1,62 @@
-// ─────────────────────────────────────────────
-//  Svdeeq-Bot CRM · Design Tokens  (v2)
-//  Single source of truth for all visual values.
-// ─────────────────────────────────────────────
-
 export const colors = {
-  // Surfaces
-  bg:          "#F7F6F3",
-  surface:     "#FFFFFF",
-  surfaceB:    "#F0EEE9",
+  // Backgrounds — layered dark like the reference
+  bgDeep:     "#1A1D21",   // leftmost icon rail
+  bgSidebar:  "#222529",   // channel list panel
+  bgMain:     "#2C2F33",   // main chat area
+  bgRight:    "#2C2F33",   // right info panel
+  bgInput:    "#383B40",   // message input
+  bgHover:    "#35383D",   // hover states
+  bgSelected: "#3D4046",   // selected item
+  bgCard:     "#32353A",   // cards / bubbles
+
+  // Accent
+  accent:     "#5865F2",   // Discord/Slack blue-purple
+  accentHover:"#4752C4",
+  accentBg:   "#1E2040",
+  green:      "#23A55A",   // online green
+  greenDot:   "#23A55A",
+  red:        "#F23F43",
+  redBg:      "#2C1215",
+  amber:      "#F0B429",
+  amberBg:    "#2C2000",
+  blue:       "#00B0F4",
+  teal:       "#1ABC9C",
+
+  // Text
+  ink:        "#F2F3F5",
+  inkB:       "#DBDEE1",
+  inkC:       "#B5BAC1",
+  inkD:       "#80848E",
+  inkMuted:   "#4E5058",
 
   // Borders
-  border:      "#E4E1D9",
-  borderB:     "#D5D1C8",
+  border:     "#1E2124",
+  borderB:    "#3A3D43",
 
-  // Text — warm ink scale
-  ink:         "#1A1916",
-  inkB:        "#3D3B35",
-  inkC:        "#7A7669",
-  inkD:        "#B0AC9F",
+  // Bubbles
+  bubbleAI:   "#383B40",
+  bubbleUser: "#1E2040",
 
-  // Accent — electric indigo
-  accent:      "#4F46E5",
-  accentBg:    "#EEF2FF",
-  accentSoft:  "rgba(79,70,229,0.08)",
-
-  // Status — green
-  green:       "#16A34A",
-  greenBg:     "#F0FDF4",
-  greenDot:    "#22C55E",
-
-  // Status — amber
-  amber:       "#D97706",
-  amberBg:     "#FFFBEB",
-  amberDot:    "#F59E0B",
-
-  // Status — red
-  red:         "#DC2626",
-  redBg:       "#FEF2F2",
-  redDot:      "#EF4444",
-
-  // Status — slate (invalid)
-  slate:       "#64748B",
-  slateBg:     "#F8FAFC",
-  slateDot:    "#94A3B8",
-} as const;
+  textBody:   "#F2F3F5",
+};
 
 export const fonts = {
-  sans: "'DM Sans', system-ui, sans-serif",
-  mono: "'DM Mono', 'Courier New', monospace",
-} as const;
+  sans: "'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+  mono: "'Fira Code', 'Consolas', 'Courier New', monospace",
+  display: "'gg sans', 'Helvetica Neue', Arial, sans-serif",
+};
 
 export const shadows = {
-  sm:  "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
-  md:  "0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)",
-  lg:  "0 8px 24px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.04)",
-} as const;
+  sm:     "0 1px 3px rgba(0,0,0,0.4)",
+  md:     "0 4px 16px rgba(0,0,0,0.5)",
+  lg:     "0 8px 32px rgba(0,0,0,0.6)",
+  bubble: "0 1px 2px rgba(0,0,0,0.3)",
+};
 
 export const layout = {
-  topbarHeight: 56,
-  sidebarWidth: 300,
-  tickerHeight: 32,
-} as const;
+  topbarHeight: 48,
+  tickerHeight: 28,
+  iconRailWidth: 72,
+  sidebarWidth: 240,
+  rightPanelWidth: 260,
+};

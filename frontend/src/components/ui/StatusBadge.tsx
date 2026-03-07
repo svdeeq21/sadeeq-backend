@@ -1,44 +1,18 @@
-// ─────────────────────────────────────────────
-//  Component: StatusBadge
-//  Renders a colored pill with a glowing dot
-//  for each lead status value.
-// ─────────────────────────────────────────────
 import type { LeadStatus } from "@/types";
 import { STATUS_CONFIG } from "@/lib/constants";
 
-interface Props {
-  status: LeadStatus;
-}
+const FALLBACK = { label: "Unknown", color: "#80848E", bg: "#2C2F33", dot: "#4E5058" };
 
-export function StatusBadge({ status }: Props) {
-  const cfg = STATUS_CONFIG[status];
+export function StatusBadge({ status }: { status: LeadStatus | string }) {
+  const cfg = STATUS_CONFIG[status as LeadStatus] ?? FALLBACK;
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        padding: "3px 9px",
-        borderRadius: 99,
-        background: cfg.bg,
-        border: `1px solid ${cfg.color}28`,
-        fontFamily: "'DM Sans', system-ui, sans-serif",
-        fontSize: 11.5,
-        fontWeight: 500,
-        color: cfg.color,
-        letterSpacing: "0.01em",
-        whiteSpace: "nowrap",
-      }}
-    >
-      <span
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          background: cfg.dot,
-          flexShrink: 0,
-        }}
-      />
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      padding: "2px 8px", borderRadius: 99,
+      background: cfg.bg, border: `1px solid ${cfg.color}35`,
+      fontSize: 11, fontWeight: 600, color: cfg.color,
+    }}>
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: cfg.dot }} />
       {cfg.label}
     </span>
   );

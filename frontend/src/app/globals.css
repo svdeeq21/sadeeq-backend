@@ -1,46 +1,18 @@
-/* ─────────────────────────────────────────────
-   Svdeeq-Bot CRM · Global Styles  (v2)
-───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html,
-body {
+html, body {
   height: 100%;
-  overflow: hidden;
-  background: #F7F6F3;
-  color: #1A1916;
-  font-family: 'DM Sans', system-ui, sans-serif;
+  background: #1A1D21;
+  color: #F2F3F5;
+  font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-size: 15px;
 }
 
-button {
-  font-family: inherit;
-  cursor: pointer;
-}
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #4E5058; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #6D7176; }
 
-input {
-  font-family: inherit;
-}
-
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #E4E1D9;
-  border-radius: 2px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #D5D1C8;
-}
+input, button, textarea { outline: none; font-family: inherit; }
+button { cursor: pointer; }

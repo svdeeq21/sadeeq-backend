@@ -7,7 +7,7 @@ from uuid import UUID
 from app.core.config import get_settings
 from app.core.supabase import get_supabase
 from app.models.schemas import WAWebhookPayload
-from app.services import memory, rag, llm, whatsapp, escalation
+from app.services import memory, rag, llm, whatsapp, escalation, scoring
 from app.utils.logger import log
 
 _l = logging.getLogger("svdeeq")
@@ -105,6 +105,13 @@ async def _process(payload: WAWebhookPayload) -> None:
     }).execute()
 
     await log.info("MESSAGE_RECEIVED", lead_id=lead_id)
+
+    # ── Update lead interest score ────────────────────────────────
+    try:
+        await scoring.update_lead_score(lead_id)
+    except Exception as e:
+        await log.warn("SCORING_FAILED", lead_id=lead_id, metadata={"error": str(e)})
+
 
     # ── Check ai_paused ───────────────────────────────────────────
     if lead.get("ai_paused") or lead.get("status") in ("HUMAN_REQUIRED", "OPTED_OUT"):

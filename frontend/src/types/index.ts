@@ -3,9 +3,12 @@
 // ─────────────────────────────────────────────
 
 export type LeadStatus =
+  | "PENDING"
+  | "OUTREACH_SENT"
   | "AI_RESPONDED"
   | "HUMAN_REQUIRED"
-  | "AI_PAUSED"
+  | "OPTED_OUT"
+  | "INACTIVE"
   | "INVALID_NUMBER";
 
 export type MessageRole = "AI" | "USER" | "SYSTEM";
@@ -13,22 +16,28 @@ export type MessageRole = "AI" | "USER" | "SYSTEM";
 export interface Lead {
   id: string;
   name: string;
-  phone: string;           // masked by default in UI
+  phone_number: string;
   status: LeadStatus;
   ai_paused: boolean;
-  location: string;
-  budget: string;
-  interest: string;
-  messages: number;
-  lastActive: string;
-  score: number;           // RAG similarity score 0–1
-  escalated: boolean;
+  business_name: string | null;
+  industry: string | null;
+  location: string | null;
+  follow_up_count: number;
+  last_outreach_at: string | null;
+  outreach_variant: string | null;
+  interest_score: number | null;
+  created_at: string;
+  message_count?: number;
+  last_active?: string;
 }
 
 export interface Message {
+  id: string;
   role: MessageRole;
-  text: string;
-  time: string;            // "HH:MM" display format
+  content: string;
+  inserted_at: string;
+  latency_ms?: number | null;
+  message_type?: string;
 }
 
 export interface SystemMetric {
@@ -43,4 +52,12 @@ export interface StatusConfig {
   color: string;
   bg: string;
   dot: string;
+}
+
+export interface MessageVariant {
+  id: string;
+  type: string;
+  message: string;
+  sent: number;
+  replies: number;
 }

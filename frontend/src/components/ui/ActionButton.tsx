@@ -1,47 +1,22 @@
-// ─────────────────────────────────────────────
-//  Component: ActionButton  (v2)
-//  Variants: success, warning, danger, ghost
-// ─────────────────────────────────────────────
+"use client";
 import { colors } from "@/lib/tokens";
-import type { CSSProperties, ReactNode } from "react";
 
 type Variant = "success" | "warning" | "danger" | "ghost";
 
-interface Props {
-  variant: Variant;
-  onClick?: () => void;
-  children: ReactNode;
-}
-
-const VARIANT_STYLES: Record<Variant, CSSProperties> = {
-  success: { background: colors.greenBg,  border: `1px solid ${colors.green}28`,  color: colors.green  },
-  warning: { background: colors.amberBg,  border: `1px solid ${colors.amber}28`,  color: colors.amber  },
-  danger:  { background: colors.redBg,    border: `1px solid ${colors.red}28`,    color: colors.red    },
-  ghost:   { background: colors.surfaceB, border: `1px solid ${colors.border}`,   color: colors.inkB   },
+const STYLES: Record<Variant, { bg: string; color: string; border: string }> = {
+  success: { bg: "#1A2E22", color: "#23A55A", border: "1px solid #23A55A40" },
+  warning: { bg: "#2C2000", color: "#F0B429", border: "1px solid #F0B42940" },
+  danger:  { bg: "#2C1215", color: "#F23F43", border: "1px solid #F23F4340" },
+  ghost:   { bg: "transparent", color: colors.inkC, border: `1px solid ${colors.borderB}` },
 };
 
-export function ActionButton({ variant, onClick, children }: Props) {
+export function ActionButton({ variant, onClick, children }: { variant: Variant; onClick?: () => void; children: React.ReactNode }) {
+  const s = STYLES[variant];
   return (
-    <button
-      onClick={onClick}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        padding: "7px 14px",
-        borderRadius: 8,
-        cursor: "pointer",
-        fontFamily: "'DM Sans', system-ui, sans-serif",
-        fontSize: 13,
-        fontWeight: 500,
-        transition: "opacity 0.15s",
-        whiteSpace: "nowrap",
-        ...VARIANT_STYLES[variant],
-      }}
-      onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.8")}
-      onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-    >
-      {children}
-    </button>
+    <button onClick={onClick} style={{
+      padding: "6px 14px", borderRadius: 6,
+      background: s.bg, border: s.border,
+      color: s.color, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+    }}>{children}</button>
   );
 }
