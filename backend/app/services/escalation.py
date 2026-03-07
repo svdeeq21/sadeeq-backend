@@ -45,30 +45,17 @@ def user_requested_human(message_text: str) -> bool:
 
 
 def get_media_reply(message_type: str) -> str | None:
-    """Returns a polite text reply for media messages, or None to ignore."""
     return MEDIA_REPLIES.get(message_type)
 
 
-async def check_ai_paused(lead_id: UUID) -> bool:
-    db = get_supabase()
-    result = (
-        db.table("leads")
-        .select("ai_paused")
-        .eq("id", str(lead_id))
-        .single()
-        .execute()
-    )
-    return result.data.get("ai_paused", False)
-
-
 async def escalate(
-    lead_id: UUID,
-    reason:  str,
+    lead_id:  UUID,
+    reason:   str,
     metadata: dict | None = None,
 ) -> None:
     """
-    Only escalates for real reasons — NOT for media or missing RAG.
-    Those are handled gracefully in the pipeline now.
+    Marks lead as HUMAN_REQUIRED and pauses AI.
+    Only called for real escalations — not for media messages.
     """
     db = get_supabase()
 
