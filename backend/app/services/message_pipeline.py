@@ -59,7 +59,7 @@ async def _process(payload: WAWebhookPayload) -> None:
     # ── Find lead by phone number ─────────────────────────────────
     lead_result = (
         db.table("leads")
-        .select("id, name, status, ai_paused")
+        .select("id, name, status, ai_paused, outreach_variant")
         .eq("phone_number", phone_number)
         .execute()
     )
@@ -71,6 +71,14 @@ async def _process(payload: WAWebhookPayload) -> None:
     lead      = lead_result.data[0]
     lead_id   = UUID(lead["id"])
     lead_name = lead.get("name") or lead_name
+
+    # ── Track reply for A/B testing ───────────────────────────────
+    outreach_variant = lead.get("outreach_variant")
+    if outreach_variant and lead.get("status") == "OUTREACH_SENT":
+        try:
+            db.rpc("increment_variant_replies", {"p_variant_id": outreach_variant}).execute()
+        except Exception:
+            pass
 
     # ── Deduplication ─────────────────────────────────────────────
     if wa_message_id:
