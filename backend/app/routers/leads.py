@@ -210,7 +210,7 @@ async def ingest_lead(
         db.table("leads")
         .select("id, status")
         .eq("phone_number", body.phone_number)
-        .maybe_single()
+        # .maybe_single()
         .execute()
     )
 
