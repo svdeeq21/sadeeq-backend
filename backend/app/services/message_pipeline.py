@@ -143,18 +143,18 @@ async def _process(payload: WAWebhookPayload) -> None:
     greetings = {"hi", "hello", "hey", "salam", "good morning", "good afternoon", "good evening"}
     is_greeting = message_text.strip().lower() in greetings
 
-    if not rag_chunks and not is_greeting:
-        await escalation.escalate(
-            lead_id,
-            "NO_RAG_MATCH",
-            {"query_preview": message_text[:80]},
-        )
-        await whatsapp.send_message(
-            phone_number,
-            "That's a great question — let me get Sadiq to follow up with you on that.",
-            lead_id,
-        )
-        return
+    # if not rag_chunks and not is_greeting:
+    #     await escalation.escalate(
+    #         lead_id,
+    #         "NO_RAG_MATCH",
+    #         {"query_preview": message_text[:80]},
+    #     )
+    #     await whatsapp.send_message(
+    #         phone_number,
+    #         "That's a great question — let me get Sadiq to follow up with you on that.",
+    #         lead_id,
+    #     )
+    #     return
 
     # ── Call LLM ──────────────────────────────────────────────────
     try:
