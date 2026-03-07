@@ -1,34 +1,28 @@
 # svdeeq-backend/app/services/rag.py
-#
-# RAG pipeline — two steps:
-#   1. Embed the user's message using Google's text-embedding-004
-#   2. Search knowledge_base via cosine similarity (Supabase RPC)
-#
-# The knowledge base is shared across ALL leads.
-# What makes each response unique is the conversation context
-# passed in from memory.py, not per-lead knowledge filtering.
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
+
 from app.core.config import get_settings
 from app.core.supabase import get_supabase
 from app.models.schemas import KnowledgeChunk
 from app.utils.logger import log
 
 settings = get_settings()
-genai.configure(api_key=settings.gemini_api_key)
+_gemini = genai.Client(api_key=settings.gemini_api_key)
 
 
 async def embed_text(text: str) -> list[float]:
     """
     Generates a vector embedding for the given text.
-    Uses Google's text-embedding-004 (768 dimensions).
+    Uses gemini-embedding-001 (3072 dimensions).
     """
-    result = genai.embed_content(
+    result = _gemini.models.embed_content(
         model=settings.embedding_model,
-        content=text,
-        task_type="retrieval_query",
+        contents=text,
+        config=types.EmbedContentConfig(task_type="RETRIEVAL_QUERY"),
     )
-    return result["embedding"]
+    return result.embeddings[0].values
 
 
 async def search_knowledge_base(
@@ -41,23 +35,20 @@ async def search_knowledge_base(
     against the shared knowledge_base table.
 
     Returns a ranked list of KnowledgeChunk objects.
-    Returns an empty list if no results meet the threshold —
-    the pipeline treats this as a low-confidence signal.
+    Returns an empty list if no results meet the threshold.
     """
     db = get_supabase()
 
     threshold = threshold or settings.rag_match_threshold
     limit     = limit     or settings.rag_match_count
 
-    # Step 1: embed the incoming user message
     embedding = await embed_text(query)
 
-    # Step 2: vector search via Supabase RPC (defined in 03_functions.sql)
     result = db.rpc("match_knowledge_base", {
         "query_embedding":  embedding,
         "match_threshold":  threshold,
         "match_count":      limit,
-        "filter_category":  None,   # search all categories
+        "filter_category":  None,
     }).execute()
 
     chunks = [KnowledgeChunk(**row) for row in (result.data or [])]
@@ -65,9 +56,9 @@ async def search_knowledge_base(
     await log.debug(
         "RAG_SEARCH",
         metadata={
-            "query_preview":  query[:80],
-            "chunks_found":   len(chunks),
-            "top_score":      chunks[0].similarity if chunks else 0,
+            "query_preview": query[:80],
+            "chunks_found":  len(chunks),
+            "top_score":     chunks[0].similarity if chunks else 0,
         },
     )
 

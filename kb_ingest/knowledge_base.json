@@ -1,0 +1,142 @@
+[
+  {
+    "title": "Who is Sadiq Shehu",
+    "category": "identity",
+    "content": "Sadiq Shehu is an AI/ML Engineer, Software Engineer, and Web Developer who builds intelligent software systems for businesses. His work focuses on automation, AI-powered tools, and scalable web platforms. He works with startups, founders, and companies that want to automate workflows, build software products, or integrate AI into their systems. Portfolio: https://sadiqshehu.vercel.app"
+  },
+  {
+    "title": "Primary Services Overview",
+    "category": "services",
+    "content": "Sadiq offers three main services: AI system development, workflow automation, and custom web platform development. Many projects combine all three areas. His goal is to help businesses automate processes, build digital products, and integrate AI into their workflows."
+  },
+  {
+    "title": "AI Systems Development",
+    "category": "services",
+    "content": "Sadiq builds custom AI systems such as AI chatbots, Retrieval Augmented Generation (RAG) systems for document interaction, NLP pipelines for text processing, predictive machine learning models, and AI integrations for web products. These systems can automate support, analyze documents, or add intelligent features to software products."
+  },
+  {
+    "title": "Workflow Automation",
+    "category": "services",
+    "content": "Sadiq builds automation systems that remove repetitive work from business processes. This includes automated lead handling, CRM integrations, automated reporting pipelines, and AI-assisted workflows. These systems connect multiple tools and APIs to streamline operations and reduce manual effort."
+  },
+  {
+    "title": "Web Platforms and SaaS Development",
+    "category": "services",
+    "content": "Sadiq builds full-stack web applications including SaaS platforms, internal dashboards, backend APIs, and AI-powered web products. These systems can include authentication, payment integrations such as Flutterwave or Stripe, and scalable backend infrastructure."
+  },
+  {
+    "title": "Portfolio",
+    "category": "resources",
+    "content": "Leads can view Sadiq's work and past projects at https://sadiqshehu.vercel.app where examples of AI systems, automation tools, and software platforms are showcased."
+  },
+  {
+    "title": "University AI Chatbot Project",
+    "category": "social_proof",
+    "content": "Sadiq built an AI chatbot for students of the Air Force Institute of Technology to help them access information about admissions, applications, and university resources. The system helps students quickly find answers to common questions without waiting for manual responses from staff."
+  },
+  {
+    "title": "Malaria Prediction Machine Learning Model",
+    "category": "social_proof",
+    "content": "Sadiq built a machine learning model designed to predict malaria likelihood using relevant data. The project demonstrates his experience with predictive modeling and real-world machine learning applications in healthcare."
+  },
+  {
+    "title": "AI Document RAG SaaS Platform",
+    "category": "social_proof",
+    "content": "Sadiq built an AI-powered SaaS platform that allows users to upload documents, generate summaries, and interact with the documents through a conversational AI interface. The platform uses Retrieval Augmented Generation (RAG) and includes authentication, subscription tiers, and Flutterwave payment integration."
+  },
+  {
+    "title": "AI Lead Messenger System",
+    "category": "social_proof",
+    "content": "Sadiq built an AI-powered outreach system that messages potential leads, qualifies them through conversation, and schedules calls. The system combines automation, conversational AI, and a lead management database. This is the system currently being used in this conversation."
+  },
+  {
+    "title": "Ideal Clients",
+    "category": "qualification",
+    "content": "Sadiq works best with founders, startups, and business owners who want to automate processes, build software products, integrate AI into their operations, or create new digital platforms. Good fits include ecommerce businesses, marketing agencies, clinics, SaaS startups, and any business that relies on customer communication."
+  },
+  {
+    "title": "Signs a Business Needs AI or Automation",
+    "category": "qualification",
+    "content": "Businesses may benefit from AI or automation if they handle repetitive customer inquiries manually, spend large amounts of time on data entry or reporting, process large volumes of documents, want to add intelligent features to an existing product, or have workflows that follow predictable rules that could be automated."
+  },
+  {
+    "title": "Booking a Call",
+    "category": "conversion",
+    "content": "If a lead is interested in working with Sadiq, the next step is to schedule a short discovery call. During the call Sadiq will learn about the project, suggest possible technical solutions, and discuss timelines and budget ranges. The call usually lasts around 30 minutes and is completely free."
+  },
+  {
+    "title": "Handling Pricing Questions",
+    "category": "objections",
+    "content": "Pricing depends on the complexity of the project. Small automation tasks are typically less expensive than full AI-powered platforms. The best way to get an accurate estimate is to discuss the project requirements during a call. Sadiq works with both small focused budgets and larger platform budgets."
+  },
+  {
+    "title": "Handling Timeline Questions",
+    "category": "objections",
+    "content": "Project timelines vary depending on complexity. Automation systems can sometimes be delivered in days, while larger platforms or AI systems may take several weeks. Exact timelines are discussed after understanding the project requirements."
+  },
+  {
+    "title": "If Lead Already Has Developers",
+    "category": "objections",
+    "content": "If a lead already has developers, Sadiq often collaborates with existing teams to build specialized AI features, automation pipelines, or machine learning systems that require specific expertise their current team may not have."
+  },
+  {
+    "title": "Value Proposition",
+    "category": "value_proposition",
+    "content": "Sadiq combines expertise in AI/ML, software engineering, and web development which means he can build complete systems rather than isolated components. He focuses on practical solutions that solve real business problems and can scale as the business grows."
+  },
+  {
+    "title": "Cold Outreach Opening",
+    "category": "conversation_playbook",
+    "content": "Quick question — are you currently using any automation or AI tools in your business, or is most of it still handled manually? I ask because I help businesses automate the parts that take up the most time."
+  },
+  {
+    "title": "Alternative Opening Message",
+    "category": "conversation_playbook",
+    "content": "Curious — how are you currently handling customer inquiries in your business? Is it mostly manual or do you have a system in place?"
+  },
+  {
+    "title": "Business Discovery Question",
+    "category": "conversation_playbook",
+    "content": "What kind of tools or systems are you currently using to manage your operations or customer interactions? I'm trying to understand where things might be slowing you down."
+  },
+  {
+    "title": "Pain Point Discovery",
+    "category": "conversation_playbook",
+    "content": "Out of curiosity, are there any parts of your workflow that feel repetitive or time-consuming right now? A lot of businesses I talk to mention things like manual follow-ups, data entry, or answering the same questions over and over."
+  },
+  {
+    "title": "Solution Suggestion After Problem Identified",
+    "category": "conversation_playbook",
+    "content": "That sounds like something that could be automated. I've built systems that handle similar workflows automatically so businesses don't have to manage those tasks manually. It frees up the team to focus on higher-value work."
+  },
+  {
+    "title": "Social Proof Insert During Conversation",
+    "category": "conversation_playbook",
+    "content": "For example, I recently built an AI platform where users upload documents and can chat with them directly. It automatically summarizes content and answers questions. Before that, the team was doing all of that manually."
+  },
+  {
+    "title": "Call Invitation",
+    "category": "conversation_playbook",
+    "content": "If you'd like, we could schedule a quick 30-minute call where Sadiq can take a look at your workflow and suggest where automation or AI could help. No pressure — just a conversation."
+  },
+  {
+    "title": "Follow Up After No Response",
+    "category": "conversation_playbook",
+    "content": "Just checking in in case my previous message got buried. Curious whether automation or AI is something you've thought about for your business."
+  },
+  {
+    "title": "Collecting Call Details",
+    "category": "conversation_playbook",
+    "content": "Great — to get it scheduled, could you share your preferred time and timezone, and give me a one or two sentence description of what you want to build or automate? Sadiq will confirm the time and send a meeting link."
+  },
+  {
+    "title": "Handling Rejection Gracefully",
+    "category": "conversation_playbook",
+    "content": "No problem at all, I appreciate you taking the time to respond. If you ever need help with automation or AI down the line, feel free to reach out. Wishing you all the best with the business."
+  },
+  {
+    "title": "Conversation Flow State Machine",
+    "category": "conversation_playbook",
+    "content": "The conversation should move through these stages in order: greeting and opening question, business discovery to understand what they do, pain point discovery to find problems, solution suggestion connecting their problem to Sadiq's services, social proof using a relevant past project, then call invitation. Do not jump ahead. If the lead jumps ahead and asks about pricing or services directly, answer briefly then steer back toward understanding their specific problem."
+  }
+]
