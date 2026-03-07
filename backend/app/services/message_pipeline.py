@@ -1,16 +1,27 @@
 # svdeeq-backend/app/services/message_pipeline.py
 
 import time
+import logging
+import traceback
 from uuid import UUID
 from app.core.supabase import get_supabase
 from app.models.schemas import WAWebhookPayload
 from app.services import memory, rag, llm, whatsapp, escalation
 from app.utils.logger import log
 
+_l = logging.getLogger("svdeeq")
+
 
 async def process_inbound_message(payload: WAWebhookPayload) -> None:
-    import logging
-    logging.getLogger("uvicorn").info(f"[PIPELINE_START] raw payload received")
+    """Wrapper that catches all exceptions so Render logs show the crash."""
+    _l.info("[PIPELINE_START] background task started")
+    try:
+        await _process(payload)
+    except Exception as e:
+        _l.error(f"[PIPELINE_CRASH] {e}\n{traceback.format_exc()}")
+
+
+async def _process(payload: WAWebhookPayload) -> None:
     pipeline_start = time.monotonic()
     db = get_supabase()
 
@@ -45,13 +56,9 @@ async def process_inbound_message(payload: WAWebhookPayload) -> None:
     )
 
     if not lead_result.data:
-        await log.warn(
-            "UNKNOWN_LEAD",
-            metadata={"phone": phone_number[:6] + "****"},
-        )
+        await log.warn("UNKNOWN_LEAD", metadata={"phone": phone_number[:6] + "****"})
         return
 
-    # FIX: data is a list, grab the first item
     lead      = lead_result.data[0]
     lead_id   = UUID(lead["id"])
     lead_name = lead.get("name") or lead_name
@@ -177,11 +184,7 @@ async def process_inbound_message(payload: WAWebhookPayload) -> None:
     try:
         await whatsapp.send_message(phone_number, reply_text, lead_id)
     except Exception as e:
-        await log.error(
-            "WA_SEND_FAILED",
-            lead_id=lead_id,
-            metadata={"error": str(e)},
-        )
+        await log.error("WA_SEND_FAILED", lead_id=lead_id, metadata={"error": str(e)})
         return
 
     # ── Log result ────────────────────────────────────────────────
