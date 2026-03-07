@@ -166,8 +166,10 @@ class LeadIngestRequest(BaseModel):
     location:      Optional[str] = None
     budget_range:  Optional[str] = None
     interest_type: Optional[str] = None
+    business_name: Optional[str] = None   # ADD THIS
+    industry:      Optional[str] = None   # ADD THIS
     source:        Optional[str] = "google_sheets"
-    external_id:   Optional[str] = None    # e.g. "sheet_row_14"
+    external_id:   Optional[str] = None
 
 
 class LeadIngestResponse(BaseModel):
@@ -246,7 +248,8 @@ async def ingest_lead(
     if body.budget_range:  insert_data["budget_range"]  = body.budget_range
     if body.interest_type: insert_data["interest_type"] = body.interest_type
     if body.external_id:   insert_data["external_id"]   = body.external_id
-
+    if body.business_name: insert_data["business_name"] = body.business_name  # ADD THIS
+    if body.industry:      insert_data["industry"]       = body.industry       # ADD THIS
     result = db.table("leads").insert(insert_data).execute()
 
     if not result.data:
