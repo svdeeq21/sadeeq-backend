@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 # svdeeq-backend/app/services/message_pipeline.py
 
 import time
@@ -102,6 +103,7 @@ async def _process(payload: WAWebhookPayload) -> None:
         "content":       message_text or f"[{message_type}]",
         "message_type":  "TEXT" if message_text else "TEXT",
         "wa_message_id": wa_message_id,
+        "timestamp":     datetime.now(timezone.utc).isoformat(),
     }).execute()
 
     await log.info("MESSAGE_RECEIVED", lead_id=lead_id)
@@ -227,6 +229,7 @@ async def _process(payload: WAWebhookPayload) -> None:
         "content":      reply_text,
         "message_type": "TEXT",
         "latency_ms":   latency_ms,
+        "timestamp":    datetime.now(timezone.utc).isoformat(),
     }).execute()
 
     if provider_used != "rule_based":
