@@ -8,7 +8,7 @@ from uuid import UUID
 from app.core.config import get_settings
 from app.core.supabase import get_supabase
 from app.models.schemas import WAWebhookPayload
-from app.services import memory, rag, llm, whatsapp, escalation, scoring
+from app.services import memory, rag, llm, whatsapp, escalation, scoring, conversation_state as state_machine
 from app.utils.logger import log
 
 _l = logging.getLogger("svdeeq")
@@ -60,7 +60,7 @@ async def _process(payload: WAWebhookPayload) -> None:
     # ── Find lead by phone number ─────────────────────────────────
     lead_result = (
         db.table("leads")
-        .select("id, name, status, ai_paused, outreach_variant")
+        .select("id, name, status, ai_paused, outreach_variant, conversation_state, interest_score, follow_up_count, last_outreach_at")
         .eq("phone_number", phone_number)
         .execute()
     )
@@ -194,6 +194,46 @@ async def _process(payload: WAWebhookPayload) -> None:
         )
         return
 
+    # ── Fetch messages for state machine ─────────────────────────
+    try:
+        msgs_result = (
+            db.table("messages")
+            .select("sender, content, timestamp")
+            .eq("lead_id", str(lead_id))
+            .order("timestamp", desc=False)
+            .execute()
+        )
+        all_messages = msgs_result.data or []
+    except Exception:
+        all_messages = []
+
+    # ── Advance conversation state ────────────────────────────────
+    try:
+        old_state, current_state = await state_machine.advance_state(
+            lead_id=lead_id,
+            lead=lead,
+            messages=all_messages,
+            latest_message=message_text,
+            interest_score=lead.get("interest_score") or 0.0,
+        )
+    except Exception as e:
+        await log.warn("STATE_ADVANCE_FAILED", lead_id=lead_id, metadata={"error": str(e)})
+        current_state = lead.get("conversation_state") or "COLD"
+        old_state = current_state
+
+    # ── If just BOOKED — notify Sadiq ────────────────────────────
+    if current_state == "BOOKED" and old_state != "BOOKED":
+        if settings.admin_whatsapp_number:
+            try:
+                from uuid import UUID as _UUID
+                await whatsapp.send_message(
+                    settings.admin_whatsapp_number,
+                    f"\U0001f389 *Lead booked a call!*\n\nName: {lead_name}\nPhone: +{phone_number}\n\nThey confirmed interest in a WhatsApp call with you. Follow up now!",
+                    _UUID(int=0),
+                )
+            except Exception:
+                pass
+
     # ── Retrieve context ──────────────────────────────────────────
     try:
         context = await memory.get_context(lead_id, lead_name)
@@ -212,7 +252,7 @@ async def _process(payload: WAWebhookPayload) -> None:
 
     # ── Call LLM ──────────────────────────────────────────────────
     try:
-        reply_text, provider_used = await llm.generate_reply(context, message_text)
+        reply_text, provider_used = await llm.generate_reply(context, message_text, conversation_state=current_state)
     except Exception as e:
         await log.error("LLM_FAILED", lead_id=lead_id, metadata={"error": str(e)})
         return

@@ -205,7 +205,7 @@ function ChatArea({ lead, messages, loading, onTogglePause, showPhone, onToggleP
                 const isSys = msg.role === "SYSTEM";
                 const prevMsg = messages[i - 1];
                 const grouped = prevMsg && prevMsg.role === msg.role;
-                const time = new Date(msg.inserted_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+                const time = new Date(msg.inserted_at ?? msg.timestamp ?? "").toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
                 const hue = (lead.name.charCodeAt(0) * 47 + (lead.name.charCodeAt(1) || 0) * 13) % 360;
 
                 if (isSys) return (

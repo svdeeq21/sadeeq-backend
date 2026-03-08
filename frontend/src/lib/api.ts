@@ -83,9 +83,9 @@ export async function resumeLead(leadId: string): Promise<void> {
 export async function fetchMessages(leadId: string): Promise<Message[]> {
   const { data, error } = await supabase
     .from("messages")
-    .select("id, sender, content, inserted_at, latency_ms, message_type")
+    .select("id, sender, content, timestamp, inserted_at, latency_ms, message_type")
     .eq("lead_id", leadId)
-    .order("inserted_at", { ascending: true });
+    .order("timestamp", { ascending: true });
 
   if (error) throw error;
 
@@ -94,14 +94,15 @@ export async function fetchMessages(leadId: string): Promise<Message[]> {
     id: string;
     sender: string;
     content: string;
-    inserted_at: string;
+    inserted_at: string | null;
+    timestamp: string | null;
     latency_ms: number | null;
     message_type: string;
   }) => ({
     id:           m.id,
     role:         m.sender as "AI" | "USER" | "SYSTEM",
     content:      m.content,
-    inserted_at:  m.inserted_at,
+    inserted_at:  m.inserted_at ?? m.timestamp,
     latency_ms:   m.latency_ms,
     message_type: m.message_type,
   }));

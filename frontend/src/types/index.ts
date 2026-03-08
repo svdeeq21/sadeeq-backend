@@ -35,7 +35,8 @@ export interface Message {
   id: string;
   role: MessageRole;
   content: string;
-  inserted_at: string;
+  inserted_at: string | null;
+  timestamp: string | null;
   latency_ms?: number | null;
   message_type?: string;
 }
