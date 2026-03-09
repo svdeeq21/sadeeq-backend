@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
 # svdeeq-backend/app/services/message_pipeline.py
-
+from datetime import datetime, timezone
+import asyncio
 import time
 import logging
 import traceback
@@ -13,6 +13,14 @@ from app.utils.logger import log
 
 _l = logging.getLogger("svdeeq")
 settings = get_settings()
+
+# ── Per-lead lock (prevents duplicate replies on rapid back-to-back messages) ──
+_lead_locks: dict[str, asyncio.Lock] = {}
+
+def _get_lead_lock(lead_id: str) -> asyncio.Lock:
+    if lead_id not in _lead_locks:
+        _lead_locks[lead_id] = asyncio.Lock()
+    return _lead_locks[lead_id]
 
 
 async def process_inbound_message(payload: WAWebhookPayload) -> None:
@@ -51,6 +59,22 @@ async def _process(payload: WAWebhookPayload) -> None:
     if "@g.us" in remote_jid:
         return
 
+    # ── Per-lead lock — drop duplicate rapid messages ─────────────
+    lead_lock = _get_lead_lock(phone_number)
+    if lead_lock.locked():
+        _l.info(f"[PIPELINE_SKIP_DUPLICATE] phone={phone_number[:6]}****")
+        return
+    async with lead_lock:
+        await _process_inner(
+            db, pipeline_start, phone_number, wa_message_id,
+            message_type, lead_name, message_text, remote_jid
+        )
+
+
+async def _process_inner(
+    db, pipeline_start, phone_number, wa_message_id,
+    message_type, lead_name, message_text, remote_jid
+):
     # ── Check if this is an admin RESUME command ──────────────────
     admin_number = (settings.admin_whatsapp_number or "").lstrip("+")
     if phone_number == admin_number and message_text.strip().upper().startswith("RESUME"):
@@ -114,7 +138,6 @@ async def _process(payload: WAWebhookPayload) -> None:
     except Exception as e:
         await log.warn("SCORING_FAILED", lead_id=lead_id, metadata={"error": str(e)})
 
-
     # ── Check ai_paused ───────────────────────────────────────────
     if lead.get("ai_paused") or lead.get("status") in ("HUMAN_REQUIRED", "OPTED_OUT"):
         await log.info("AI_PAUSED_SKIP", lead_id=lead_id)
@@ -135,7 +158,6 @@ async def _process(payload: WAWebhookPayload) -> None:
         if reply:
             await whatsapp.send_message(phone_number, reply, lead_id)
 
-        # Notify admin with lead phone number and media type
         if settings.admin_whatsapp_number:
             admin_alert = (
                 f"📎 *Media received from lead*\n\n"
@@ -147,11 +169,7 @@ async def _process(payload: WAWebhookPayload) -> None:
             )
             try:
                 from uuid import UUID as _UUID
-                await whatsapp.send_message(
-                    settings.admin_whatsapp_number,
-                    admin_alert,
-                    _UUID(int=0),
-                )
+                await whatsapp.send_message(settings.admin_whatsapp_number, admin_alert, _UUID(int=0))
             except Exception as e:
                 await log.warn("ADMIN_NOTIFY_FAILED", metadata={"error": str(e)})
 
@@ -179,19 +197,11 @@ async def _process(payload: WAWebhookPayload) -> None:
             )
             try:
                 from uuid import UUID as _UUID
-                await whatsapp.send_message(
-                    settings.admin_whatsapp_number,
-                    admin_alert,
-                    _UUID(int=0),
-                )
+                await whatsapp.send_message(settings.admin_whatsapp_number, admin_alert, _UUID(int=0))
             except Exception as e:
                 await log.warn("ADMIN_NOTIFY_FAILED", metadata={"error": str(e)})
 
-        await whatsapp.send_message(
-            phone_number,
-            "Of course! I'll connect you with Sadiq shortly.",
-            lead_id,
-        )
+        await whatsapp.send_message(phone_number, "Of course! I'll connect you with Sadiq shortly.", lead_id)
         return
 
     # ── Fetch messages for state machine ─────────────────────────
@@ -312,10 +322,6 @@ async def _process(payload: WAWebhookPayload) -> None:
 
 
 async def _handle_resume_command(message_text: str, admin_phone: str) -> None:
-    """
-    Handles RESUME <phoneNumber> command from the admin.
-    Resets the lead's ai_paused and status so the bot resumes.
-    """
     db = get_supabase()
 
     parts = message_text.split()
