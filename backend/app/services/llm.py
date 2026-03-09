@@ -79,7 +79,7 @@ def _build_prompt(context: ConversationContext, user_message: str) -> str:
 
 # ── Provider 1: Gemini ───────────────────────────────────────────
 
-async def _try_gemini(prompt: str) -> str:
+async def _try_gemini(prompt: str, system_prompt: str = SYSTEM_PROMPT) -> str:
     response = _gemini.models.generate_content(
         model=settings.gemini_model,
         contents=prompt,
@@ -97,7 +97,7 @@ async def _try_gemini(prompt: str) -> str:
 
 # ── Provider 2: Groq ─────────────────────────────────────────────
 
-async def _try_groq(prompt: str) -> str:
+async def _try_groq(prompt: str, system_prompt: str = SYSTEM_PROMPT) -> str:
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {settings.groq_api_key}",
@@ -106,7 +106,7 @@ async def _try_groq(prompt: str) -> str:
     payload = {
         "model": settings.groq_model,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user",   "content": prompt},
         ],
         "max_tokens":  500,
@@ -126,14 +126,14 @@ async def _try_groq(prompt: str) -> str:
 
 # ── Provider 3: HuggingFace ──────────────────────────────────────
 
-async def _try_huggingface(prompt: str) -> str:
+async def _try_huggingface(prompt: str, system_prompt: str = SYSTEM_PROMPT) -> str:
     model = settings.huggingface_model
     url   = f"https://router.huggingface.co/hf-inference/models/{model}"
     headers = {
         "Authorization": f"Bearer {settings.huggingface_api_key}",
         "Content-Type":  "application/json",
     }
-    full_prompt = f"{SYSTEM_PROMPT}\n\n{prompt}\n\nAssistant:"
+    full_prompt = f"{system_prompt}\n\n{prompt}\n\nAssistant:"
     payload = {
         "inputs": full_prompt,
         "parameters": {
@@ -194,8 +194,8 @@ async def _notify_admin(provider_used: str, failed_providers: list[str], lead_id
 # ── Main entry point ─────────────────────────────────────────────
 
 async def generate_reply(
-    context:           ConversationContext,
-    user_message:      str,
+    context:            ConversationContext,
+    user_message:       str,
     conversation_state: str = "COLD",
 ) -> tuple[str, str]:
     system_prompt    = get_prompt_for_state(conversation_state)
@@ -204,7 +204,7 @@ async def generate_reply(
 
     # Level 1: Gemini
     try:
-        reply = await _try_gemini(prompt)
+        reply = await _try_gemini(prompt, system_prompt)
         await log.info("LLM_REPLY_GENERATED", lead_id=context.lead_id,
                        metadata={"provider": "gemini", "preview": reply[:80]})
         return reply, "gemini"
@@ -215,7 +215,7 @@ async def generate_reply(
 
     # Level 2: Groq
     try:
-        reply = await _try_groq(prompt)
+        reply = await _try_groq(prompt, system_prompt)
         await _notify_admin("groq", failed_providers, context.lead_id)
         await log.info("LLM_REPLY_GENERATED", lead_id=context.lead_id,
                        metadata={"provider": "groq", "preview": reply[:80]})
@@ -227,7 +227,7 @@ async def generate_reply(
 
     # Level 3: HuggingFace
     try:
-        reply = await _try_huggingface(prompt)
+        reply = await _try_huggingface(prompt, system_prompt)
         await _notify_admin("huggingface", failed_providers, context.lead_id)
         await log.info("LLM_REPLY_GENERATED", lead_id=context.lead_id,
                        metadata={"provider": "huggingface", "preview": reply[:80]})
