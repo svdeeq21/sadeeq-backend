@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.core.supabase import get_supabase
 from app.models.schemas import WAWebhookPayload
 from app.services import memory, rag, llm, whatsapp, escalation, scoring, conversation_state as state_machine
+from app.services import intent_engine
 from app.utils.logger import log
 
 _l = logging.getLogger("svdeeq")
@@ -176,10 +177,32 @@ async def _process_inner(
         await log.info("MEDIA_HANDLED", lead_id=lead_id, metadata={"type": message_type})
         return
 
-    # ── Handle STOP ───────────────────────────────────────────────
+    # ── Intent detection ─────────────────────────────────────────
+    intent = intent_engine.detect_intent(message_text)
+
+    # Hard exit — STOP / remove me / tired of answering
+    if intent_engine.is_hard_exit(intent):
+        db.table("leads").update({"status": "OPTED_OUT", "ai_paused": True}).eq("id", str(lead_id)).execute()
+        await whatsapp.send_message(phone_number, "Understood, I'll remove you from our list. Take care!", lead_id)
+        await log.info("LEAD_OPTED_OUT", lead_id=lead_id, metadata={"reason": "hard_exit_intent"})
+        return
+
+    # Also catch raw "STOP" keyword
     if message_text.strip().upper() == "STOP":
-        db.table("leads").update({"status": "OPTED_OUT"}).eq("id", str(lead_id)).execute()
+        db.table("leads").update({"status": "OPTED_OUT", "ai_paused": True}).eq("id", str(lead_id)).execute()
         await whatsapp.send_message(phone_number, "You've been unsubscribed. We won't contact you again.", lead_id)
+        return
+
+    # Canned responses — identity/source questions answered directly without LLM
+    canned = intent_engine.get_canned_response(intent)
+    if canned:
+        db.table("messages").insert({
+            "lead_id": str(lead_id), "sender": "AI", "content": canned,
+            "message_type": "TEXT", "latency_ms": 0,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+        await whatsapp.send_message(phone_number, canned, lead_id)
+        await log.info("CANNED_RESPONSE_SENT", lead_id=lead_id, metadata={"intent": intent})
         return
 
     # ── Handle human request ──────────────────────────────────────
@@ -217,6 +240,14 @@ async def _process_inner(
     except Exception:
         all_messages = []
 
+    # ── Extract lead profile (prevents question loops) ───────────
+    lead_profile = intent_engine.extract_lead_profile(all_messages)
+
+    # Apply name correction if user provided it
+    if lead_profile.get("name_confirmed"):
+        lead_name = lead_profile["name_confirmed"]
+        db.table("leads").update({"name": lead_name}).eq("id", str(lead_id)).execute()
+
     # ── Advance conversation state ────────────────────────────────
     try:
         old_state, current_state = await state_machine.advance_state(
@@ -225,6 +256,8 @@ async def _process_inner(
             messages=all_messages,
             latest_message=message_text,
             interest_score=lead.get("interest_score") or 0.0,
+            intent=intent,
+            lead_profile=lead_profile,
         )
     except Exception as e:
         await log.warn("STATE_ADVANCE_FAILED", lead_id=lead_id, metadata={"error": str(e)})
@@ -262,7 +295,7 @@ async def _process_inner(
 
     # ── Call LLM ──────────────────────────────────────────────────
     try:
-        reply_text, provider_used = await llm.generate_reply(context, message_text, conversation_state=current_state)
+        reply_text, provider_used = await llm.generate_reply(context, message_text, conversation_state=current_state, lead_profile=lead_profile)
     except Exception as e:
         await log.error("LLM_FAILED", lead_id=lead_id, metadata={"error": str(e)})
         return
@@ -284,6 +317,23 @@ async def _process_inner(
 
     if provider_used != "rule_based":
         db.table("leads").update({"status": "AI_RESPONDED"}).eq("id", str(lead_id)).execute()
+
+    # ── Safety guardrails before sending ────────────────────────
+    # Block hallucinated call agreements
+    if "agreed to" in reply_text.lower() and not intent_engine.is_call_confirmed(intent, message_text):
+        reply_text = reply_text  # will regenerate below if needed
+        # Check if response falsely claims booking
+        if any(p in reply_text.lower() for p in ["you've agreed", "you agreed", "you confirmed", "you've confirmed"]):
+            await log.warn("GUARDRAIL_BLOCKED_FAKE_AGREEMENT", lead_id=lead_id)
+            reply_text = "Of course! Feel free to ask anything else — I'm happy to help."
+
+    # Block if lead is opted out (double-check)
+    fresh_lead = db.table("leads").select("status, ai_paused").eq("id", str(lead_id)).execute()
+    if fresh_lead.data:
+        fl = fresh_lead.data[0]
+        if fl.get("ai_paused") or fl.get("status") == "OPTED_OUT":
+            await log.info("GUARDRAIL_BLOCKED_OPTED_OUT", lead_id=lead_id)
+            return
 
     # ── Send via WhatsApp ─────────────────────────────────────────
     try:

@@ -18,6 +18,7 @@ Core rules (always follow these):
 - Be concise. 2-3 sentences max unless the lead asks for more detail.
 - Use the lead's name SPARINGLY — only once at the very start of a conversation, or at emotionally significant moments (booking confirmed, wrapping up). Do NOT start every message with their name. Most replies should have no name at all.
 - Never claim to be human — but don't volunteer that you're an AI either.
+- CRITICAL: Never invent, guess, or expand a lead's name. Use ONLY the exact name provided. If you only have a first name, use only the first name. Never add a surname.
 - Never invent prices, timelines, or guarantees.
 - Never send links or files — text only (portfolio link is the only exception, and only if asked).
 - If they say STOP or ask to be removed, reply "Understood, I'll remove you from our list." and nothing else.
@@ -116,6 +117,25 @@ Otherwise, do not initiate further contact.
 }
 
 
-def get_prompt_for_state(state: str) -> str:
-    """Return the system prompt for the given conversation state."""
-    return PROMPTS.get(state, PROMPTS["COLD"])
+def get_prompt_for_state(state: str, lead_profile: dict | None = None) -> str:
+    """Return the system prompt for the given conversation state, enriched with lead profile."""
+    base = PROMPTS.get(state, PROMPTS["COLD"])
+
+    if not lead_profile:
+        return base
+
+    known = []
+    if lead_profile.get("business_described"):
+        known.append("- The lead has already described their business. Do NOT ask what their business does again.")
+    if lead_profile.get("problem_identified"):
+        known.append("- The lead has already described their main problem/pain point. Do NOT ask discovery questions about problems again. Move toward the solution.")
+    if lead_profile.get("current_system_known"):
+        known.append("- The lead has already described how they currently handle things. Do NOT ask about their current system again.")
+    if lead_profile.get("name_confirmed"):
+        known.append(f"- The lead's name is spelled exactly: {lead_profile['name_confirmed']}. Use ONLY this spelling. Never guess or expand their name.")
+
+    if not known:
+        return base
+
+    profile_block = "\n\nWHAT YOU ALREADY KNOW ABOUT THIS LEAD (do not re-ask these):\n" + "\n".join(known)
+    return base + profile_block

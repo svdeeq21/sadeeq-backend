@@ -84,6 +84,8 @@ def determine_next_state(
     messages: list[dict],
     latest_message: str,
     interest_score: float,
+    intent: str = "NEUTRAL",
+    lead_profile: dict | None = None,
 ) -> str:
     """
     Core state transition logic.
@@ -99,11 +101,25 @@ def determine_next_state(
     if current_state == DEAD:
         return DEAD
 
+    # ── Negative intent — move to NURTURE regardless of stage ────
+    if intent == "NEGATIVE":
+        return NURTURE
+
+    # ── Use lead profile to fast-track DISCOVERY → PITCH ─────────
+    profile = lead_profile or {}
+    if (current_state == DISCOVERY
+            and profile.get("problem_identified")
+            and profile.get("business_described")):
+        # Enough info — don't wait for turn count, advance now
+        if interest_score >= 0.3 or user_count >= 2:
+            return PITCH
+
     # ── CALL_INVITE → resolution ─────────────────────────────────
     if current_state == CALL_INVITE:
-        if _matches(text, CALL_CONFIRM):
+        # Strict: only BOOKED if explicit CONFIRM_CALL intent AND not a question
+        if intent == "CONFIRM_CALL" and "?" not in latest_message:
             return BOOKED
-        if _matches(text, CALL_REJECT):
+        if intent in ("NEGATIVE", "STOP") or _matches(text, CALL_REJECT):
             return NURTURE
         # Still waiting — stay in CALL_INVITE for up to 2 more exchanges
         if ai_count >= 8:
@@ -184,6 +200,8 @@ async def advance_state(
     messages: list[dict],
     latest_message: str,
     interest_score: float,
+    intent: str = "NEUTRAL",
+    lead_profile: dict | None = None,
 ) -> tuple[str, str]:
     """
     Load current state, compute next state, save if changed.
@@ -196,6 +214,8 @@ async def advance_state(
         messages=messages,
         latest_message=latest_message,
         interest_score=interest_score,
+        intent=intent,
+        lead_profile=lead_profile or {},
     )
 
     if next_state != current:
