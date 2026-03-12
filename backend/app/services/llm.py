@@ -15,6 +15,18 @@ settings = get_settings()
 _gemini = genai.Client(api_key=settings.gemini_api_key)
 
 
+def _is_too_similar(a: str, b: str) -> bool:
+    """Returns True if two strings share more than 70% of their words."""
+    if not a or not b:
+        return False
+    words_a = set(a.lower().split())
+    words_b = set(b.lower().split())
+    if not words_a or not words_b:
+        return False
+    overlap = len(words_a & words_b) / min(len(words_a), len(words_b))
+    return overlap > 0.70
+
+
 # ── System prompt ────────────────────────────────────────────────
 SYSTEM_PROMPT = """You are an AI outreach assistant representing Sadiq Shehu, an AI/ML Engineer, Software Engineer, and Web Developer.
 
@@ -72,6 +84,18 @@ def _build_prompt(context: ConversationContext, user_message: str) -> str:
         parts.append(f"## Relevant knowledge\n{kb_text}")
 
     parts.append(f"## Lead's message\n{context.lead_name}: {user_message}")
+
+    # Hard anti-repetition rules injected into every prompt
+    parts.append(
+        "## STRICT RULES FOR THIS REPLY\n"
+        "- Do NOT greet the lead unless this is the very first message in the conversation.\n"
+        "- Do NOT repeat anything you already said in the recent messages above.\n"
+        "- Do NOT re-ask any question already asked above.\n"
+        "- Do NOT re-introduce yourself if you already did so.\n"
+        "- Read the full conversation above carefully before writing your reply.\n"
+        "- Your reply must move the conversation FORWARD from where it currently is."
+    )
+
     parts.append("## Your reply (as Sadiq's assistant)")
 
     return "\n\n".join(parts)
@@ -206,6 +230,14 @@ async def generate_reply(
     # Level 1: Gemini
     try:
         reply = await _try_gemini(prompt, system_prompt)
+        # If reply is too similar to last bot message, regenerate once
+        last_bot = next((m["content"] for m in reversed(context.recent or []) if m.get("role") == "assistant"), None)
+        if last_bot and _is_too_similar(reply, last_bot):
+            prompt_retry = prompt + "\n\n(Important: your previous reply was too similar to what you just said. Write a DIFFERENT response that moves the conversation forward.)"
+            try:
+                reply = await _try_gemini(prompt_retry, system_prompt)
+            except Exception:
+                pass
         await log.info("LLM_REPLY_GENERATED", lead_id=context.lead_id,
                        metadata={"provider": "gemini", "preview": reply[:80]})
         return reply, "gemini"

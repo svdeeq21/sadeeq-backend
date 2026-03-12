@@ -279,7 +279,7 @@ async def _process_inner(
 
     # ── Retrieve context ──────────────────────────────────────────
     try:
-        context = await memory.get_context(lead_id, lead_name)
+        context = await memory.get_context(lead_id, lead_name, all_messages=all_messages)
     except Exception as e:
         await log.error("CONTEXT_FETCH_FAILED", lead_id=lead_id, metadata={"error": str(e)})
         return
