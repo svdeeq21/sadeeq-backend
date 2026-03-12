@@ -182,6 +182,7 @@ async def _try_huggingface(prompt: str, system_prompt: str = SYSTEM_PROMPT) -> s
 # ── Admin notification ───────────────────────────────────────────
 
 async def _notify_admin(provider_used: str, failed_providers: list[str], lead_id) -> None:
+    # Log only — no WhatsApp spam for API quota issues
     await log.warn(
         "LLM_FALLBACK_USED",
         lead_id=lead_id,
@@ -190,29 +191,6 @@ async def _notify_admin(provider_used: str, failed_providers: list[str], lead_id
             "failed_providers": failed_providers,
         },
     )
-
-    if not settings.admin_whatsapp_number:
-        return
-
-    try:
-        from app.services.whatsapp import send_message
-        from uuid import UUID
-
-        alert_text = (
-            f"⚠️ *Svdeeq-Bot Alert*\n\n"
-            f"LLM fallback triggered.\n"
-            f"Failed: {', '.join(failed_providers)}\n"
-            f"Using: *{provider_used}*\n"
-            f"Lead: `{lead_id}`\n\n"
-            f"Check your API quotas."
-        )
-        await send_message(
-            phone_number=settings.admin_whatsapp_number,
-            text=alert_text,
-            lead_id=UUID(int=0),
-        )
-    except Exception as e:
-        await log.warn("ADMIN_NOTIFY_FAILED", metadata={"error": str(e)})
 
 
 # ── Main entry point ─────────────────────────────────────────────

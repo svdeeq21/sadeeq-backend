@@ -45,13 +45,19 @@ _NEGATIVE_PATTERNS = [
 
 _CONFIRM_CALL_PATTERNS = [
     r"\byes\b", r"\byeah\b", r"\byep\b", r"\bsure\b",
-    r"\bokay\b", r"\bok\b", r"\blet'?s (do it|go|talk|chat)\b",
+    r"\bokay\b", r"\bok\b", r"\balright\b", r"\baight\b",
+    r"\blet'?s (do it|go|talk|chat)\b",
     r"\bsounds good\b", r"\bi'?m (in|interested|down)\b",
     r"\bgo ahead\b", r"\bproceed\b", r"\bcount me in\b",
     r"\bbook\b", r"\bschedule\b", r"\bconfirm\b",
     r"\bwhen.*call\b", r"\bwhat.*time\b",
     r"\btomorrow\b", r"\btoday\b", r"\bweekend\b",
+    r"\bsaturday\b", r"\bsunday\b", r"\bmonday\b",
+    r"\btuesday\b", r"\bwednesday\b", r"\bthursday\b", r"\bfriday\b",
+    r"\d{1,2}(:\d{2})?(am|pm)\b",   # time like 7pm, 9:00am
     r"\bworks for me\b", r"\bi'?ll (call|reach out|contact)\b",
+    r"\bthat('?s| is) fine\b", r"\bsound(s)? good\b",
+    r"\bi agree\b", r"\blet'?s do\b",
 ]
 
 _IDENTITY_PATTERNS = [

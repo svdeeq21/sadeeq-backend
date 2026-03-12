@@ -266,16 +266,25 @@ async def _process_inner(
 
     # ── If just BOOKED — notify Sadiq ────────────────────────────
     if current_state == "BOOKED" and old_state != "BOOKED":
+        await log.info("LEAD_BOOKED", lead_id=lead_id, metadata={"phone": phone_number, "name": lead_name})
         if settings.admin_whatsapp_number:
+            booking_alert = (
+                f"🎉 *Call Booked!*\n\n"
+                f"Name: {lead_name}\n"
+                f"Phone: +{phone_number}\n\n"
+                f"Their message: _{message_text[:150]}_\n\n"
+                f"Follow up now on +{phone_number} to confirm the time."
+            )
             try:
                 from uuid import UUID as _UUID
                 await whatsapp.send_message(
                     settings.admin_whatsapp_number,
-                    f"\U0001f389 *Lead booked a call!*\n\nName: {lead_name}\nPhone: +{phone_number}\n\nThey confirmed interest in a WhatsApp call with you. Follow up now!",
+                    booking_alert,
                     _UUID(int=0),
                 )
-            except Exception:
-                pass
+                await log.info("BOOKING_ALERT_SENT", lead_id=lead_id)
+            except Exception as e:
+                await log.warn("BOOKING_ALERT_FAILED", lead_id=lead_id, metadata={"error": str(e)})
 
     # ── Retrieve context ──────────────────────────────────────────
     try:
