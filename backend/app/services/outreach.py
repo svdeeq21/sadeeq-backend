@@ -124,12 +124,36 @@ async def send_initial_outreach(lead: dict) -> bool:
     lead_id = lead["id"]
     phone   = lead["phone_number"].lstrip("+")
 
-    variant = _pick_variant(db, "opening")
-    if not variant:
-        await log.warn("NO_OPENING_VARIANT", metadata={"lead_id": lead_id})
-        return False
+    # ── Run opportunity analyzer before first message ───────────
+    # Generates pain_point, suggested_solutions, and industry_opening_variant
+    # and saves them to the lead's record in Supabase.
+    try:
+        from app.services.opportunity_analyzer import run_and_save as analyze
+        await analyze(lead)
+        # Reload lead to get fresh industry_opening_variant if just generated
+        fresh = db.table("leads").select("*").eq("id", lead_id).execute()
+        if fresh.data:
+            lead = fresh.data[0]
+    except Exception as e:
+        await log.warn("ANALYZER_SKIPPED", metadata={"lead_id": lead_id, "error": str(e)})
 
-    message = _personalise(variant["message"], lead)
+    # ── Pick opening variant ──────────────────────────────────
+    # If the analyzer generated a personalized opening, use it directly.
+    # Otherwise fall back to a message variant from the database.
+    industry_hook = lead.get("industry_opening_variant")
+
+    if industry_hook:
+        # Build personalized message using the analyzer's hypothesis
+        first_name = (lead.get("name") or "there").split()[0]
+        business_name = lead.get("business_name") or "your business"
+        message = f"Hi {first_name}, quick one — {industry_hook}"
+        variant = _pick_variant(db, "opening")  # still need variant for tracking
+    else:
+        variant = _pick_variant(db, "opening")
+        if not variant:
+            await log.warn("NO_OPENING_VARIANT", metadata={"lead_id": lead_id})
+            return False
+        message = _personalise(variant["message"], lead)
 
     try:
         from uuid import UUID

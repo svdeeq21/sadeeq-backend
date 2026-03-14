@@ -248,6 +248,19 @@ async def _process_inner(
         lead_name = lead_profile["name_confirmed"]
         db.table("leads").update({"name": lead_name}).eq("id", str(lead_id)).execute()
 
+    # ── Save structured memory to leads table ────────────────
+    # Persist pain point and objections discovered in conversation
+    memory_patch: dict = {}
+    if lead_profile.get("pain_point_text"):
+        memory_patch["pain_point"] = lead_profile["pain_point_text"]
+    if lead_profile.get("objections"):
+        memory_patch["objections"] = lead_profile["objections"]
+    if memory_patch:
+        try:
+            db.table("leads").update(memory_patch).eq("id", str(lead_id)).execute()
+        except Exception:
+            pass
+
     # ── Advance conversation state ────────────────────────────────
     try:
         old_state, current_state = await state_machine.advance_state(
@@ -304,7 +317,7 @@ async def _process_inner(
 
     # ── Call LLM ──────────────────────────────────────────────────
     try:
-        reply_text, provider_used = await llm.generate_reply(context, message_text, conversation_state=current_state, lead_profile=lead_profile)
+        reply_text, provider_used = await llm.generate_reply(context, message_text, conversation_state=current_state, lead_profile=lead_profile, lead=lead)
     except Exception as e:
         await log.error("LLM_FAILED", lead_id=lead_id, metadata={"error": str(e)})
         return

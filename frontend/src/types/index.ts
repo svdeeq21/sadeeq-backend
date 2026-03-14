@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────
-//  Svdeeq-Bot CRM · Type Definitions
+//  Svdeeq Command Center · Type Definitions
 // ─────────────────────────────────────────────
 
 export type LeadStatus =
@@ -7,52 +7,49 @@ export type LeadStatus =
   | "OUTREACH_SENT"
   | "AI_RESPONDED"
   | "HUMAN_REQUIRED"
+  | "AI_PAUSED"
   | "OPTED_OUT"
-  | "INACTIVE"
-  | "INVALID_NUMBER";
+  | "INVALID_NUMBER"
+  | "BOOKED";
 
-export type MessageRole = "AI" | "USER" | "SYSTEM";
+export type ConversationState =
+  | "COLD"
+  | "DISCOVERY"
+  | "PITCH"
+  | "CALL_INVITE"
+  | "BOOKED"
+  | "NURTURE"
+  | "DEAD";
+
+export type MessageSender = "AI" | "USER" | "SYSTEM";
 
 export interface Lead {
   id: string;
   name: string;
   phone_number: string;
+  business_name?: string;
+  industry?: string;
+  location?: string;
   status: LeadStatus;
   ai_paused: boolean;
-  business_name: string | null;
-  industry: string | null;
-  location: string | null;
-  follow_up_count: number;
-  last_outreach_at: string | null;
-  outreach_variant: string | null;
-  interest_score: number | null;
+  conversation_state?: ConversationState;
+  interest_score?: number;
+  follow_up_count?: number;
+  last_outreach_at?: string;
+  next_follow_up_at?: string;
+  outreach_variant?: string;
   created_at: string;
-  message_count?: number;
-  last_active?: string;
 }
 
 export interface Message {
   id: string;
-  role: MessageRole;
+  lead_id: string;
+  sender: MessageSender;
   content: string;
-  inserted_at: string | null;
-  timestamp: string | null;
-  latency_ms?: number | null;
+  timestamp: string;
+  latency_ms?: number;
   message_type?: string;
-}
-
-export interface SystemMetric {
-  key: string;
-  label: string;
-  value: string;
-  good: boolean;
-}
-
-export interface StatusConfig {
-  label: string;
-  color: string;
-  bg: string;
-  dot: string;
+  wa_message_id?: string;
 }
 
 export interface MessageVariant {
@@ -61,4 +58,22 @@ export interface MessageVariant {
   message: string;
   sent: number;
   replies: number;
+  is_active: boolean;
+}
+
+export interface DailyStats {
+  date: string;
+  sent: number;
+  replies: number;
+  booked: number;
+}
+
+export interface SystemHealth {
+  wa_connected: boolean;
+  db_healthy: boolean;
+  avg_latency_ms: number;
+  leads_total: number;
+  messages_today: number;
+  reply_rate: number;
+  calls_booked: number;
 }

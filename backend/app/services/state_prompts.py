@@ -126,7 +126,7 @@ Otherwise, do not initiate further contact.
 }
 
 
-def get_prompt_for_state(state: str, lead_profile: dict | None = None) -> str:
+def get_prompt_for_state(state: str, lead_profile: dict | None = None, lead: dict | None = None) -> str:
     """Return the system prompt for the given conversation state, enriched with lead profile."""
     base = PROMPTS.get(state, PROMPTS["COLD"])
 
@@ -143,6 +143,25 @@ def get_prompt_for_state(state: str, lead_profile: dict | None = None) -> str:
         known.append("- The lead has already described how they currently handle things. Do NOT ask about their current system again.")
     if lead_profile.get("name_confirmed"):
         known.append(f"- The lead's name is spelled exactly: {lead_profile['name_confirmed']}. Use ONLY this spelling. Never guess or expand their name.")
+
+    # ── Inject opportunity analysis from lead record ────────
+    # Gives the bot a pre-built hypothesis before the conversation starts
+    if lead:
+        pain_point = lead.get("pain_point")
+        solutions  = lead.get("suggested_solutions") or []
+        analysis   = lead.get("opportunity_analysis")
+        objections = lead.get("objections") or []
+
+        if pain_point:
+            known.append(f"- Predicted pain point: {pain_point}. Lead the conversation toward this — don't ask if they already described it.")
+        if solutions:
+            sol_list = "\n  ".join(f"· {s}" for s in solutions[:3])
+            known.append(f"- Suggested solutions to pitch (pick the most relevant one):\n  {sol_list}")
+        if analysis:
+            known.append(f"- Business context: {analysis}")
+        if objections:
+            obj_str = " | ".join(objections[:2])
+            known.append(f"- Known objections: {obj_str}. Do NOT re-trigger these.")
 
     if not known:
         return base

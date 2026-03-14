@@ -185,6 +185,46 @@ def extract_lead_profile(messages: list[dict]) -> dict:
     if name_correction:
         profile["name_confirmed"] = name_correction.group(1).strip()
 
+    # Also catch "it's X not Y" name correction pattern per-message
+    for msg in messages:
+        if msg.get("sender") == "USER":
+            text = msg.get("content", "")
+            m = re.search(r"it['s]* ([A-Z][a-z]+)(,| not)", text, re.IGNORECASE)
+            if m:
+                profile["name_confirmed"] = m.group(1)
+
+    # ── Extract pain point text ──────────────────────────────
+    # Grab the first user message that describes a problem in their own words.
+    pain_keywords = [
+        r"problem", r"challenge", r"struggl", r"issue",
+        r"difficult", r"hard to", r"too much", r"manually",
+        r"time.consum", r"keep track", r"overwhel",
+    ]
+    for msg in messages:
+        if msg.get("sender") == "USER" and len(msg.get("content", "")) > 20:
+            text = msg["content"]
+            if any(re.search(p, text, re.IGNORECASE) for p in pain_keywords):
+                profile["pain_point_text"] = text[:300]
+                break
+
+    # ── Extract objections ───────────────────────────────────
+    objection_keywords = [
+        r"already have", r"not interested", r"no thanks",
+        r"too expensive", r"can'?t afford", r"not now",
+        r"maybe later", r"don'?t need", r"we'?re fine",
+        r"not looking",
+    ]
+    objections_found = []
+    for msg in messages:
+        if msg.get("sender") == "USER":
+            text = msg.get("content", "")
+            for p in objection_keywords:
+                if re.search(p, text, re.IGNORECASE):
+                    objections_found.append(text[:150])
+                    break
+    if objections_found:
+        profile["objections"] = objections_found
+
     return profile
 
 

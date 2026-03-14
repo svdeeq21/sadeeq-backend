@@ -1,27 +1,64 @@
-import type { SystemMetric, StatusConfig, LeadStatus } from "@/types";
+// ─────────────────────────────────────────────
+//  Svdeeq Command Center · Constants
+// ─────────────────────────────────────────────
 
-export const STATUS_CONFIG: Record<LeadStatus, StatusConfig> = {
-  PENDING:        { label: "Pending",      color: "#80848E", bg: "#2C2F33", dot: "#4E5058" },
-  OUTREACH_SENT:  { label: "Outreach Sent",color: "#00B0F4", bg: "#0A1929", dot: "#00B0F4" },
-  AI_RESPONDED:   { label: "AI Active",    color: "#23A55A", bg: "#1A2E22", dot: "#23A55A" },
-  HUMAN_REQUIRED: { label: "Needs You",    color: "#F23F43", bg: "#2C1215", dot: "#F23F43" },
-  OPTED_OUT:      { label: "Opted Out",    color: "#4E5058", bg: "#2C2F33", dot: "#4E5058" },
-  INACTIVE:       { label: "Inactive",     color: "#4E5058", bg: "#2C2F33", dot: "#3A3D43" },
-  INVALID_NUMBER: { label: "Invalid",      color: "#4E5058", bg: "#2C2F33", dot: "#4E5058" },
+import { colors } from "./tokens";
+import type { LeadStatus, ConversationState } from "@/types";
+
+export const STATUS_CONFIG: Record<LeadStatus, {
+  label: string; color: string; bg: string; dot: string;
+}> = {
+  PENDING:        { label: "Pending",       color: colors.inkC,   bg: colors.slateBg,  dot: colors.slateDot },
+  OUTREACH_SENT:  { label: "Outreached",    color: colors.blue,   bg: colors.blueBg,   dot: colors.blue },
+  AI_RESPONDED:   { label: "Replied",       color: colors.green,  bg: colors.greenBg,  dot: colors.greenDot },
+  HUMAN_REQUIRED: { label: "Needs You",     color: colors.red,    bg: colors.redBg,    dot: colors.redDot },
+  AI_PAUSED:      { label: "Paused",        color: colors.amber,  bg: colors.amberBg,  dot: colors.amberDot },
+  OPTED_OUT:      { label: "Opted Out",     color: colors.inkD,   bg: colors.slateBg,  dot: colors.slateDot },
+  INVALID_NUMBER: { label: "Invalid",       color: colors.inkD,   bg: colors.slateBg,  dot: colors.slateDot },
+  BOOKED:         { label: "Call Booked",   color: colors.accent, bg: colors.accentBg, dot: colors.accent },
 };
 
-export const DEFAULT_SYSTEM_METRICS: SystemMetric[] = [
-  { key: "WA",  label: "WhatsApp",  value: "Checking…", good: true },
-  { key: "LLM", label: "LLM",       value: "Gemini",    good: true },
-  { key: "DB",  label: "Database",  value: "Supabase",  good: true },
-  { key: "LAT", label: "Latency",   value: "—",         good: true },
-];
+export const STATE_CONFIG: Record<ConversationState, {
+  label: string; color: string;
+}> = {
+  COLD:        { label: "Cold",        color: colors.blue },
+  DISCOVERY:   { label: "Discovery",   color: colors.amber },
+  PITCH:       { label: "Pitching",    color: colors.blue },
+  CALL_INVITE: { label: "Call Invite", color: colors.amber },
+  BOOKED:      { label: "Booked",      color: colors.green },
+  NURTURE:     { label: "Nurture",     color: colors.inkC },
+  DEAD:        { label: "Dead",        color: colors.inkD },
+};
 
-export const TICKER_MESSAGES: string[] = [
-  "Svdeeq-Bot · AI outreach · live",
-  "WhatsApp connected via Evolution API",
-  "RAG · gemini-embedding-001",
-  "Scheduler active · WAT 09:00–12:00 / 14:00–17:30",
-  "A/B testing · tracking reply rates",
-  "Follow-up sequence · Day 0 → 2 → 5 → 10",
-];
+export function heatLabel(score: number): "HOT" | "WARM" | "COLD" | "UNTOUCHED" {
+  if (score >= 0.7) return "HOT";
+  if (score >= 0.4) return "WARM";
+  if (score >= 0.15) return "COLD";
+  return "UNTOUCHED";
+}
+
+export function heatColor(score: number): string {
+  const h = heatLabel(score);
+  if (h === "HOT")  return colors.hot;
+  if (h === "WARM") return colors.warm;
+  if (h === "COLD") return colors.cold;
+  return colors.inkD;
+}
+
+export function formatPhone(phone: string, reveal = false): string {
+  if (reveal) return `+${phone}`;
+  if (phone.length < 7) return phone;
+  return `+${phone.slice(0, 3)} ×××× ${phone.slice(-4)}`;
+}
+
+export function timeAgo(isoString?: string): string {
+  if (!isoString) return "—";
+  const diff = Date.now() - new Date(isoString).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)   return "just now";
+  if (mins < 60)  return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)   return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}

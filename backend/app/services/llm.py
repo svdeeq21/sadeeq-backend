@@ -200,8 +200,9 @@ async def generate_reply(
     user_message:       str,
     conversation_state: str = "COLD",
     lead_profile:       dict | None = None,
+    lead:               dict | None = None,
 ) -> tuple[str, str]:
-    system_prompt    = get_prompt_for_state(conversation_state, lead_profile or {})
+    system_prompt    = get_prompt_for_state(conversation_state, lead_profile or {}, lead=lead)
     prompt           = _build_prompt(context, user_message)
     failed_providers: list[str] = []
 
