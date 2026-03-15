@@ -39,6 +39,14 @@ export interface Lead {
   next_follow_up_at?: string;
   outreach_variant?: string;
   created_at: string;
+
+  // ── Opportunity Analyzer fields ──────────────
+  pain_point?: string;
+  suggested_solutions?: string[];
+  objections?: string[];
+  opportunity_analysis?: string;
+  industry_opening_variant?: string;
+  analysis_generated_at?: string;
 }
 
 export interface Message {
@@ -59,13 +67,6 @@ export interface MessageVariant {
   sent: number;
   replies: number;
   is_active: boolean;
-}
-
-export interface DailyStats {
-  date: string;
-  sent: number;
-  replies: number;
-  booked: number;
 }
 
 export interface SystemHealth {

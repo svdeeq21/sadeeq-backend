@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import HTTPException as FastAPIHTTPException
 from app.core.config import get_settings
-from app.routers import webhook, leads, health
+from app.routers import webhook, leads, health, scrape
 from app.services.scheduler import start_scheduler, stop_scheduler  # NEW
 
 settings = get_settings()
@@ -58,6 +58,7 @@ async def shutdown_event():
 app.include_router(health.router)
 app.include_router(webhook.router)
 app.include_router(leads.router)
+app.include_router(scrape.router)
 
 
 @app.get("/")

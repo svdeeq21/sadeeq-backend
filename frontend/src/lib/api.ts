@@ -37,7 +37,7 @@ async function sb<T>(
 
 export async function fetchLeads(): Promise<Lead[]> {
   return sb<Lead>("leads", {
-    select: "id,name,phone_number,business_name,industry,location,status,ai_paused,conversation_state,interest_score,follow_up_count,last_outreach_at,next_follow_up_at,outreach_variant,created_at",
+    select: "id,name,phone_number,business_name,industry,location,status,ai_paused,conversation_state,interest_score,follow_up_count,last_outreach_at,next_follow_up_at,outreach_variant,created_at,pain_point,suggested_solutions,objections,opportunity_analysis,industry_opening_variant,analysis_generated_at",
     order: "created_at.desc",
   });
 }
