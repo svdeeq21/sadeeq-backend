@@ -1,7 +1,7 @@
 # svdeeq-backend/app/core/config.py
 #
 # UPDATED — replace your existing config.py with this full version.
-# Added: Groq, HuggingFace, and admin WhatsApp number settings.
+# Added: Groq, HuggingFace, admin WhatsApp number, and SerpAPI key.
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
     # ── Admin alerts ─────────────────────────────────────────────
     admin_api_key:           str
-    admin_whatsapp_number:   str = ""           # e.g. +2348012345678 — leave blank to disable WA alerts
+    admin_whatsapp_number:   str = ""           # e.g. +2348012345678 — leave blank to disable
 
     # ── App ──────────────────────────────────────────────────────
     app_env:   str = "development"
@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # ── Memory ───────────────────────────────────────────────────
     memory_recent_window:    int = 6
     memory_summary_interval: int = 5
+
+    # ── Scraper ──────────────────────────────────────────────────
+    serpapi_key: str = ""                       # get free key at serpapi.com
 
     @property
     def is_production(self) -> bool:
