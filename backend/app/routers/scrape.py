@@ -4,7 +4,7 @@
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from app.services.scraper import scrape_and_insert, scrape_multiple_cities, NIGERIAN_CITIES, ALL_CITIES
+from app.services.scraper import scrape_and_insert, scrape_multiple_cities, NIGERIAN_STATES, ALL_STATES, LAGOS_AREAS, ABUJA_AREAS
 from app.utils.logger import log
 
 router = APIRouter(prefix="/api", tags=["scraper"])
@@ -105,12 +105,12 @@ async def trigger_batch_scrape(body: BatchScrapeRequest):
     """
     # Resolve city list
     if body.region:
-        region_map = {r.lower(): cities for r, cities in NIGERIAN_CITIES.items()}
+        region_map = {r.lower(): cities for r, cities in NIGERIAN_STATES.items()}
         cities = region_map.get(body.region.lower())
         if not cities:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unknown region. Valid regions: {list(NIGERIAN_CITIES.keys())}",
+                detail=f"Unknown region. Valid regions: {list(NIGERIAN_STATES.keys())}",
             )
     else:
         cities = body.cities  # None = all cities in scraper
@@ -139,9 +139,11 @@ async def trigger_batch_scrape(body: BatchScrapeRequest):
 
 @router.get("/scrape/presets")
 async def get_presets():
-    """Return preset categories, all cities, and regions for the frontend."""
+    """Return preset categories, all 36 states, zones, and area drilldowns."""
     return {
-        "categories": PRESET_CATEGORIES,
-        "locations":  ALL_CITIES,
-        "regions":    {region: cities for region, cities in NIGERIAN_CITIES.items()},
+        "categories":  PRESET_CATEGORIES,
+        "states":      ALL_STATES,                          # flat list for single-state picker
+        "zones":       NIGERIAN_STATES,                     # grouped by geopolitical zone for batch
+        "lagos_areas": LAGOS_AREAS,                         # drilldown for Lagos
+        "abuja_areas": ABUJA_AREAS,                         # drilldown for Abuja
     }

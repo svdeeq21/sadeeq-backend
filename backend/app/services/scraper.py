@@ -24,35 +24,52 @@ SERPAPI_URL = "https://serpapi.com/search"
 # Nigerian country/area code prefixes to recognise valid mobile numbers
 NG_PREFIXES = ("0", "234", "+234", "07", "08", "09", "070", "080", "090", "081", "091")
 
-# All major Nigerian cities organised by region
-NIGERIAN_CITIES: dict[str, list[str]] = {
+# All 36 Nigerian states + FCT organised by geopolitical zone
+# Searches are done at state level — more reliable on Google Maps than city-level
+NIGERIAN_STATES: dict[str, list[str]] = {
     "North Central": [
-        "Abuja", "Wuse Abuja", "Maitama Abuja", "Garki Abuja",
-        "Gwarinpa Abuja", "Kubwa Abuja", "Lokoja", "Minna", "Ilorin",
-        "Lafia", "Makurdi", "Jos",
+        "FCT Abuja", "Benue State", "Kogi State",
+        "Kwara State", "Nasarawa State", "Niger State", "Plateau State",
     ],
     "North West": [
-        "Kano", "Kaduna", "Zaria", "Katsina", "Sokoto",
-        "Gusau", "Dutse", "Birnin Kebbi",
+        "Kaduna State", "Kano State", "Katsina State", "Kebbi State",
+        "Sokoto State", "Zamfara State", "Jigawa State",
     ],
     "North East": [
-        "Maiduguri", "Yola", "Bauchi", "Gombe", "Jalingo", "Damaturu",
+        "Adamawa State", "Bauchi State", "Borno State",
+        "Gombe State", "Taraba State", "Yobe State",
     ],
     "South West": [
-        "Lagos", "Ikeja Lagos", "Victoria Island Lagos", "Lekki Lagos",
-        "Ibadan", "Abeokuta", "Akure", "Ado-Ekiti", "Osogbo",
+        "Lagos State", "Ogun State", "Oyo State",
+        "Osun State", "Ondo State", "Ekiti State",
     ],
     "South South": [
-        "Port Harcourt", "Warri", "Benin City", "Uyo", "Calabar",
-        "Asaba", "Yenagoa",
+        "Rivers State", "Delta State", "Edo State",
+        "Akwa Ibom State", "Cross River State", "Bayelsa State",
     ],
     "South East": [
-        "Enugu", "Onitsha", "Nnewi", "Owerri", "Awka", "Abakaliki", "Umuahia",
+        "Anambra State", "Enugu State", "Imo State",
+        "Abia State", "Ebonyi State",
     ],
 }
 
-# Flat list for iteration
-ALL_CITIES: list[str] = [city for cities in NIGERIAN_CITIES.values() for city in cities]
+# Flat list for iteration — all 36 states + FCT
+ALL_STATES: list[str] = [s for states in NIGERIAN_STATES.values() for s in states]
+
+# Keep city lists for Lagos and Abuja where drilling down adds value
+LAGOS_AREAS = [
+    "Lagos Island", "Lagos Mainland", "Ikeja Lagos", "Lekki Lagos",
+    "Victoria Island Lagos", "Surulere Lagos", "Yaba Lagos",
+    "Ajah Lagos", "Ikorodu Lagos", "Badagry Lagos",
+]
+ABUJA_AREAS = [
+    "Wuse Abuja", "Garki Abuja", "Maitama Abuja", "Gwarinpa Abuja",
+    "Kubwa Abuja", "Asokoro Abuja", "Jabi Abuja", "Utako Abuja",
+]
+
+# Backward compat aliases
+NIGERIAN_CITIES = NIGERIAN_STATES
+ALL_CITIES = ALL_STATES
 
 
 # ── Phone cleaning ────────────────────────────────────────────────
@@ -106,12 +123,16 @@ async def _fetch_serpapi(query: str, location: str) -> list[dict]:
     if not api_key:
         raise ValueError("SERPAPI_KEY not set in environment variables")
 
+    # Ensure Nigeria is appended so Maps doesn't confuse with other countries
+    loc = location if "Nigeria" in location or "State" in location else f"{location}, Nigeria"
+
     params = {
         "engine":   "google_maps",
-        "q":        f"{query} in {location}",
+        "q":        f"{query} {loc}",
         "type":     "search",
         "api_key":  api_key,
         "hl":       "en",
+        "ll":       "@9.0820,8.6753,6z",  # Nigeria center coordinates
     }
 
     async with httpx.AsyncClient(timeout=30) as client:

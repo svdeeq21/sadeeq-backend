@@ -6,10 +6,10 @@
 #
 # Usage:
 #   python scripts/scrape.py --category pharmacy
-#   python scripts/scrape.py --category bakery --cities "Lagos,Abuja,Kano"
+#   python scripts/scrape.py --category bakery --states "Lagos,Abuja,Kano"
 #   python scripts/scrape.py --category restaurant --region "South West"
-#   python scripts/scrape.py --category clinic --all-cities
-#   python scripts/scrape.py --list-cities
+#   python scripts/scrape.py --category clinic --all-states
+#   python scripts/scrape.py --list-states
 #   python scripts/scrape.py --list-categories
 #
 # Setup (one time):
@@ -43,9 +43,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.services.scraper import (
     scrape_and_insert,
-    scrape_multiple_cities,
-    NIGERIAN_CITIES,
-    ALL_CITIES,
+    scrape_multiple_states,
+    NIGERIAN_STATES,
+    ALL_STATES,
 )
 
 PRESET_CATEGORIES = [
@@ -65,33 +65,33 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Scrape pharmacies across all Nigerian cities
-  python scripts/scrape.py --category pharmacy --all-cities
+  # Scrape pharmacies across all Nigerian states
+  python scripts/scrape.py --category pharmacy --all-states
 
-  # Scrape bakeries in specific cities only
-  python scripts/scrape.py --category bakery --cities "Lagos,Abuja,Kano"
+  # Scrape bakeries in specific states only
+  python scripts/scrape.py --category bakery --states "Lagos,Abuja,Kano"
 
   # Scrape restaurants in South West region only
   python scripts/scrape.py --category restaurant --region "South West"
 
-  # Single city scrape
-  python scripts/scrape.py --category clinic --city "Port Harcourt"
+  # Single state scrape
+  python scripts/scrape.py --category clinic --state "Port Harcourt"
 
-  # List all available cities
-  python scripts/scrape.py --list-cities
+  # List all available states
+  python scripts/scrape.py --list-states
 
   # List preset categories
   python scripts/scrape.py --list-categories
         """,
     )
     p.add_argument("--category",        type=str, help="Business category to search")
-    p.add_argument("--city",            type=str, help="Single city to scrape")
-    p.add_argument("--cities",          type=str, help="Comma-separated list of cities")
+    p.add_argument("--state",            type=str, help="Single state to scrape")
+    p.add_argument("--states",          type=str, help="Comma-separated list of states")
     p.add_argument("--region",          type=str, help="Nigerian region (e.g. 'South West')")
-    p.add_argument("--all-cities",      action="store_true", help="Scrape all Nigerian cities")
-    p.add_argument("--max-per-city",    type=int, default=20, help="Max results per city (default: 20)")
-    p.add_argument("--delay",           type=float, default=2.0, help="Seconds between city calls (default: 2)")
-    p.add_argument("--list-cities",     action="store_true", help="Print all available cities and exit")
+    p.add_argument("--all-states",      action="store_true", help="Scrape all Nigerian states")
+    p.add_argument("--max-per-state",    type=int, default=20, help="Max results per state (default: 20)")
+    p.add_argument("--delay",           type=float, default=2.0, help="Seconds between state calls (default: 2)")
+    p.add_argument("--list-states",     action="store_true", help="Print all available states and exit")
     p.add_argument("--list-categories", action="store_true", help="Print preset categories and exit")
     return p
 
@@ -101,12 +101,12 @@ async def main():
     args   = parser.parse_args()
 
     # ── Info commands ─────────────────────────────────────────────
-    if args.list_cities:
+    if args.list_states:
         print("\n📍 Available Nigerian Cities:\n")
-        for region, cities in NIGERIAN_CITIES.items():
+        for region, states in NIGERIAN_STATES.items():
             print(f"  {region}:")
-            for city in cities:
-                print(f"    - {city}")
+            for state in states:
+                print(f"    - {state}")
         print()
         return
 
@@ -125,51 +125,51 @@ async def main():
 
     category = args.category.strip()
 
-    # ── Determine target cities ───────────────────────────────────
-    if args.all_cities:
-        cities = ALL_CITIES
-        mode   = f"all {len(cities)} cities"
+    # ── Determine target states ───────────────────────────────────
+    if args.all_states:
+        states = ALL_STATES
+        mode   = f"all {len(states)} states"
 
-    elif args.cities:
-        cities = [c.strip() for c in args.cities.split(",") if c.strip()]
-        mode   = f"{len(cities)} cities"
+    elif args.states:
+        states = [c.strip() for c in args.states.split(",") if c.strip()]
+        mode   = f"{len(states)} states"
 
     elif args.region:
-        region_map = {r.lower(): cities for r, cities in NIGERIAN_CITIES.items()}
-        cities = region_map.get(args.region.lower())
-        if not cities:
+        region_map = {r.lower(): states for r, states in NIGERIAN_STATES.items()}
+        states = region_map.get(args.region.lower())
+        if not states:
             print(f"\n❌  Unknown region: '{args.region}'")
-            print(f"    Available: {', '.join(NIGERIAN_CITIES.keys())}\n")
+            print(f"    Available: {', '.join(NIGERIAN_STATES.keys())}\n")
             sys.exit(1)
-        mode = f"{args.region} region ({len(cities)} cities)"
+        mode = f"{args.region} region ({len(states)} states)"
 
-    elif args.city:
-        # Single city — use scrape_and_insert directly
-        city = args.city.strip()
-        if "Nigeria" not in city:
-            city = f"{city}, Nigeria"
-        print(f"\n🗺  Scraping '{category}' in {city}…\n")
+    elif args.state:
+        # Single state — use scrape_and_insert directly
+        state = args.state.strip()
+        if "Nigeria" not in state:
+            state = f"{state}, Nigeria"
+        print(f"\n🗺  Scraping '{category}' in {state}…\n")
         result = await scrape_and_insert(
             category=category,
-            location=city,
+            location=state,
             max_results=args.max_per_city,
         )
-        _print_single_result(result, city)
+        _print_single_result(result, state)
         return
 
     else:
         # Default: Abuja only
-        cities = ["Abuja, Nigeria"]
+        states = ["Abuja, Nigeria"]
         mode   = "Abuja (default)"
 
-    # ── Multi-city batch scrape ───────────────────────────────────
+    # ── Multi-state batch scrape ───────────────────────────────────
     print(f"\n🗺  Scraping '{category}' across {mode}")
-    print(f"   Max {args.max_per_city} results per city · {args.delay}s delay\n")
+    print(f"   Max {args.max_per_city} results per state · {args.delay}s delay\n")
     print("─" * 55)
 
-    result = await scrape_multiple_cities(
+    result = await scrape_multiple_states(
         category=category,
-        cities=cities,
+        states=states,
         max_per_city=args.max_per_city,
         delay_secs=args.delay,
     )
@@ -178,16 +178,16 @@ async def main():
     print("─" * 55)
     print(f"\n✅  Done!\n")
     print(f"   Category:       {result['category']}")
-    print(f"   Cities run:     {result['cities_run']}")
+    print(f"   Cities run:     {result['states_run']}")
     print(f"   Found on Maps:  {result['scraped']}")
     print(f"   New leads:      {result['new']}")
     print(f"   Duplicates:     {result['skipped']}")
-    if result["cities_failed"]:
-        print(f"   Failed cities:  {', '.join(result['cities_failed'])}")
+    if result["states_failed"]:
+        print(f"   Failed states:  {', '.join(result['states_failed'])}")
     print()
 
 
-def _print_single_result(result: dict, city: str):
+def _print_single_result(result: dict, state: str):
     print(f"   Found on Maps:  {result['scraped']}")
     print(f"   New leads:      {result['new']}")
     print(f"   Duplicates:     {result['skipped']}")
