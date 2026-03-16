@@ -41,6 +41,13 @@ _NEGATIVE_PATTERNS = [
     r"\bnot (the right time|a good time)\b",
     r"\bwe already have\b", r"\bwe use\b",
     r"\bnot looking\b", r"\bnot (buying|paying)\b",
+    # Polite goodbyes — treat as negative, stop messaging
+    r"\bhave a nice day\b", r"\bhave a good day\b",
+    r"\bgood day\b", r"\btake care\b",
+    r"\bgoodbye\b", r"\bbye bye\b",
+    r"\btalk (later|soon)\b", r"\bsee you\b",
+    r"\bstate your intentions\b",
+    r"\bwho (are|sent) you\b",
 ]
 
 _CONFIRM_CALL_PATTERNS = [
