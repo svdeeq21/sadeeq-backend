@@ -242,6 +242,7 @@ async def _process_inner(
 
     # ── Extract lead profile (prevents question loops) ───────────
     lead_profile = intent_engine.extract_lead_profile(all_messages)
+    bant_flags   = intent_engine.detect_bant_flags(all_messages)
 
     # Apply name correction if user provided it
     if lead_profile.get("name_confirmed"):
@@ -317,7 +318,7 @@ async def _process_inner(
 
     # ── Call LLM ──────────────────────────────────────────────────
     try:
-        reply_text, provider_used = await llm.generate_reply(context, message_text, conversation_state=current_state, lead_profile=lead_profile, lead=lead)
+        reply_text, provider_used = await llm.generate_reply(context, message_text, conversation_state=current_state, lead_profile=lead_profile, lead=lead, bant_flags=bant_flags, intent=intent)
     except Exception as e:
         await log.error("LLM_FAILED", lead_id=lead_id, metadata={"error": str(e)})
         return

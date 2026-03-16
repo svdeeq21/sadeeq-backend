@@ -143,10 +143,20 @@ async def send_initial_outreach(lead: dict) -> bool:
     industry_hook = lead.get("industry_opening_variant")
 
     if industry_hook:
-        # Build personalized message using the analyzer's hypothesis
-        first_name = (lead.get("name") or "there").split()[0]
+        # Build value-led opening using the analyzer's hypothesis
+        # Structure: pain statement → soft yes/no confirmation question
+        # NOT: "tell me about your business" (interrogation)
+        # YES: "X is usually the biggest issue for [industry] — is that something you deal with?"
+        first_name    = (lead.get("name") or "there").split()[0]
         business_name = lead.get("business_name") or "your business"
-        message = f"Hi {first_name}, quick one — {industry_hook}"
+
+        # industry_hook already contains the specific question from the analyzer
+        # Prefix it with the business name to make it feel researched
+        if business_name and business_name != "your business":
+            message = f"Hi {first_name} — {industry_hook}"
+        else:
+            message = f"Hi {first_name}, {industry_hook}"
+
         variant = _pick_variant(db, "opening")  # still need variant for tracking
     else:
         variant = _pick_variant(db, "opening")

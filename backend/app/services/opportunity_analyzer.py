@@ -257,7 +257,7 @@ async def _llm_analyze(
     bottlenecks_str = "\n".join(f"- {b}" for b in profile["bottlenecks"])
     loc_str = f" in {location}" if location else ""
 
-    prompt = f"""You are analyzing a business to identify automation opportunities for an AI consultant.
+    prompt = f"""You are analyzing a business to identify automation opportunities for an AI consultant named Sadiq Shehu.
 
 Business: {business_name}{loc_str}
 Industry: {industry}
@@ -275,12 +275,13 @@ Generate a concise opportunity analysis. Respond ONLY with valid JSON in this ex
     "Specific automation idea 3 — describe the solution and its impact in one sentence"
   ],
   "opportunity_analysis": "2-3 sentence narrative analysis of this business's automation opportunity. Be specific to the industry and location if possible.",
-  "industry_opening_variant": "A single conversational question to ask {first_name} that sounds researched and specific. It should reference their likely pain point without sounding like a sales pitch. Max 1 sentence."
+  "industry_opening_variant": "A value-led opening statement + soft yes/no question for {first_name}. Structure: '[Pain point] is usually where [industry type] businesses lose the most time — is that something you deal with at {business_name}?' Make it sound like you already know their world. Max 1 sentence. Do NOT say 'quick one' or 'random question'. Sound confident and specific."
 }}
 
 Rules:
 - Be specific to {industry}, not generic
-- The opening question should feel like you already know their business
+- The opening must lead with a pain statement, not a question about their business
+- It should feel researched, not like a cold survey
 - No fluff, no preamble, valid JSON only"""
 
     response = client.models.generate_content(
