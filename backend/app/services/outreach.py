@@ -82,35 +82,58 @@ def _pick_variant(db, variant_type: str) -> dict | None:
 
 
 def _personalise(template: str, lead: dict) -> str:
-    """Fill in {name}, {business_name}, {industry} placeholders."""
+    """
+    Fill in placeholders. Handles fallback syntax {industry|fallback}
+    so messages never break when a field is missing.
+    """
+    import re
+
     name          = lead.get("name") or "there"
     business_name = lead.get("business_name") or "your business"
-    industry      = lead.get("industry") or "your industry"
+    industry      = lead.get("industry") or ""
+    first_name    = name.split()[0] if name else "there"
 
-    # Use first name only
-    first_name = name.split()[0] if name else "there"
+    result = template
 
-    return (
-        template
-        .replace("{name}", first_name)
+    # Handle fallback syntax: {industry|local} → uses industry if available, else fallback
+    def replace_with_fallback(match):
+        field, fallback = match.group(1), match.group(2)
+        values = {
+            "name":          first_name,
+            "business_name": business_name,
+            "industry":      industry,
+        }
+        val = values.get(field, "")
+        return val if val else fallback
+
+    result = re.sub(r"\{(\w+)\|([^}]+)\}", replace_with_fallback, result)
+
+    # Handle standard placeholders
+    result = (
+        result
+        .replace("{name}",          first_name)
         .replace("{business_name}", business_name)
-        .replace("{industry}", industry)
+        .replace("{industry}",      industry if industry else "business")
         .replace("{booking_contact}", BOOKING_CONTACT)
     )
 
+    return result
 
-def _increment_sent(db, variant_id: str) -> None:
-    """Increment sent counter for a variant."""
+
+def _increment_sent(db, variant_id: str, industry: str | None = None) -> None:
+    """Increment sent counter. Also records best industry when reply rates emerge."""
     try:
         db.rpc("increment_variant_sent", {"p_variant_id": variant_id}).execute()
     except Exception:
-        # Fallback: manual increment
         try:
-            current = db.table("message_variants").select("sent").eq("id", variant_id).execute()
+            current = db.table("message_variants").select("sent, replies, best_industry").eq("id", variant_id).execute()
             if current.data:
-                db.table("message_variants").update({
-                    "sent": current.data[0]["sent"] + 1
-                }).eq("id", variant_id).execute()
+                patch: dict = {"sent": current.data[0]["sent"] + 1}
+                # Track which industry this variant is performing best for
+                if industry and not current.data[0].get("best_industry"):
+                    if current.data[0].get("replies", 0) > 2:
+                        patch["best_industry"] = industry
+                db.table("message_variants").update(patch).eq("id", variant_id).execute()
         except Exception:
             pass
 
@@ -143,27 +166,30 @@ async def send_initial_outreach(lead: dict) -> bool:
     industry_hook = lead.get("industry_opening_variant")
 
     if industry_hook:
-        # Build value-led opening using the analyzer's hypothesis
-        # Structure: pain statement → soft yes/no confirmation question
-        # NOT: "tell me about your business" (interrogation)
-        # YES: "X is usually the biggest issue for [industry] — is that something you deal with?"
+        # Use the analyzer's personalized value-led opening.
+        # Structure: pain statement → soft yes/no confirmation question.
         first_name    = (lead.get("name") or "there").split()[0]
         business_name = lead.get("business_name") or "your business"
 
-        # industry_hook already contains the specific question from the analyzer
-        # Prefix it with the business name to make it feel researched
         if business_name and business_name != "your business":
             message = f"Hi {first_name} — {industry_hook}"
         else:
             message = f"Hi {first_name}, {industry_hook}"
 
-        variant = _pick_variant(db, "opening")  # still need variant for tracking
+        # Pick the best-performing fallback variant for tracking purposes only.
+        # This lets the A/B system measure which industries respond best
+        # even though the actual message came from the analyzer.
+        variant = _pick_variant(db, "opening")
+        # Tag this outreach as analyzer-generated in the variant tracking note
+        analyzer_generated = True
     else:
+        # No analyzer hook available — use a database variant directly.
         variant = _pick_variant(db, "opening")
         if not variant:
             await log.warn("NO_OPENING_VARIANT", metadata={"lead_id": lead_id})
             return False
         message = _personalise(variant["message"], lead)
+        analyzer_generated = False
 
     try:
         from uuid import UUID
@@ -182,7 +208,7 @@ async def send_initial_outreach(lead: dict) -> bool:
         "outreach_variant": variant["id"],
     }).eq("id", lead_id).execute()
 
-    _increment_sent(db, variant["id"])
+    _increment_sent(db, variant["id"], industry=lead.get("industry"))
 
     await log.info("INITIAL_OUTREACH_SENT", metadata={
         "lead_id":   lead_id,
