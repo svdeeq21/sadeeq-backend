@@ -1,129 +1,138 @@
 "use client";
-import { colors, fonts, shadows } from "@/lib/tokens";
+import { colors, fonts, shadows, radius } from "@/lib/tokens";
 import { STATUS_CONFIG, STATE_CONFIG, heatColor, heatLabel } from "@/lib/constants";
 import type { LeadStatus, ConversationState } from "@/types";
 
-// ── Status Badge ──────────────────────────────
 export function StatusBadge({ status }: { status: LeadStatus }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG["PENDING"];
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 5,
-      padding: "3px 8px", borderRadius: 6,
-      background: cfg.bg, fontSize: 11, fontWeight: 500,
+      padding: "2px 8px", borderRadius: radius.full,
+      background: cfg.bg, fontSize: 10.5, fontWeight: 500,
       color: cfg.color, fontFamily: fonts.mono,
-      border: `1px solid ${cfg.dot}20`,
+      border: `1px solid ${cfg.dot}18`, whiteSpace: "nowrap",
     }}>
-      <span style={{
-        width: 5, height: 5, borderRadius: "50%",
-        background: cfg.dot, display: "inline-block",
-      }} />
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: cfg.dot, display: "inline-block", flexShrink: 0 }} />
       {cfg.label}
     </span>
   );
 }
 
-// ── State Badge ───────────────────────────────
 export function StateBadge({ state }: { state: ConversationState }) {
   const cfg = STATE_CONFIG[state] ?? STATE_CONFIG["COLD"];
   return (
     <span style={{
       display: "inline-flex", alignItems: "center",
-      padding: "2px 7px", borderRadius: 4,
-      background: `${cfg.color}14`, fontSize: 10.5, fontWeight: 600,
+      padding: "2px 7px", borderRadius: radius.sm,
+      background: `${cfg.color}10`, fontSize: 10, fontWeight: 600,
       color: cfg.color, fontFamily: fonts.mono, letterSpacing: "0.04em",
+      whiteSpace: "nowrap",
     }}>
       {cfg.label.toUpperCase()}
     </span>
   );
 }
 
-// ── Heat Badge ────────────────────────────────
 export function HeatBadge({ score }: { score: number }) {
   const label = heatLabel(score);
   const color = heatColor(score);
   return (
     <span style={{
-      display: "inline-flex", alignItems: "center", gap: 4,
-      padding: "2px 7px", borderRadius: 4,
-      background: `${color}14`, fontSize: 10.5, fontWeight: 700,
-      color, fontFamily: fonts.mono,
+      display: "inline-flex", alignItems: "center", gap: 3,
+      padding: "2px 7px", borderRadius: radius.sm,
+      background: `${color}10`, fontSize: 10, fontWeight: 600,
+      color, fontFamily: fonts.mono, whiteSpace: "nowrap",
     }}>
-      {label === "HOT" ? "🔥" : label === "WARM" ? "◉" : "○"} {label}
+      {label}
     </span>
   );
 }
 
-// ── Score Bar ─────────────────────────────────
 export function ScoreBar({ score }: { score: number }) {
   const color = heatColor(score);
-  const pct = Math.round((score ?? 0) * 100);
+  const pct   = Math.round((score ?? 0) * 100);
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ width: 60, height: 3, background: colors.surfaceD, borderRadius: 2 }}>
-        <div style={{
-          width: `${pct}%`, height: "100%", borderRadius: 2,
-          background: color, transition: "width 0.4s",
-        }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ width: 48, height: 3, background: colors.surfaceE, borderRadius: 99, overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 99, transition: "width 0.4s" }} />
       </div>
-      <span style={{ fontSize: 10.5, fontFamily: fonts.mono, color, fontWeight: 600 }}>
-        {pct}
-      </span>
+      <span style={{ fontSize: 10, fontFamily: fonts.mono, color: colors.inkC }}>{pct}</span>
     </div>
   );
 }
 
-// ── Button ────────────────────────────────────
 type BtnVariant = "primary" | "danger" | "warning" | "ghost" | "success";
-export function Btn({
-  children, onClick, variant = "ghost", small, disabled,
-}: {
+export function Btn({ children, onClick, variant = "ghost", small, disabled }: {
   children: React.ReactNode; onClick?: () => void;
   variant?: BtnVariant; small?: boolean; disabled?: boolean;
 }) {
-  const styles: Record<BtnVariant, { bg: string; color: string; border: string }> = {
-    primary: { bg: colors.accent,    color: "#000",         border: "transparent" },
-    success: { bg: colors.greenBg,   color: colors.green,   border: `${colors.green}30` },
-    warning: { bg: colors.amberBg,   color: colors.amber,   border: `${colors.amber}30` },
-    danger:  { bg: colors.redBg,     color: colors.red,     border: `${colors.red}30` },
-    ghost:   { bg: colors.surfaceC,  color: colors.inkB,    border: colors.border },
+  const v: Record<BtnVariant, { bg: string; color: string; border: string }> = {
+    primary: { bg: colors.ink,      color: colors.bg,   border: "transparent" },
+    success: { bg: colors.greenBg,  color: colors.green, border: `${colors.green}20` },
+    warning: { bg: colors.amberBg,  color: colors.amber, border: `${colors.amber}20` },
+    danger:  { bg: colors.redBg,    color: colors.red,   border: `${colors.red}20` },
+    ghost:   { bg: colors.surfaceC, color: colors.inkB,  border: colors.border },
   };
-  const s = styles[variant];
+  const s = v[variant];
   return (
     <button onClick={onClick} disabled={disabled} style={{
-      padding: small ? "5px 10px" : "7px 14px",
-      borderRadius: 7, cursor: disabled ? "not-allowed" : "pointer",
+      padding: small ? "4px 10px" : "7px 14px",
+      borderRadius: radius.md, cursor: disabled ? "not-allowed" : "pointer",
       fontFamily: fonts.sans, fontSize: small ? 11.5 : 12.5, fontWeight: 500,
-      background: s.bg, color: s.color,
-      border: `1px solid ${s.border}`,
-      opacity: disabled ? 0.5 : 1,
-      transition: "all 0.15s", whiteSpace: "nowrap",
+      background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+      opacity: disabled ? 0.4 : 1, transition: "all 0.12s",
+      whiteSpace: "nowrap", lineHeight: 1,
     }}>
       {children}
     </button>
   );
 }
 
-// ── Card ──────────────────────────────────────
-export function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+export function Card({ children, style, highlight }: {
+  children: React.ReactNode; style?: React.CSSProperties; highlight?: boolean;
+}) {
   return (
     <div style={{
-      background: colors.surface, border: `1px solid ${colors.border}`,
-      borderRadius: 12, boxShadow: shadows.sm, ...style,
+      background: colors.surface,
+      border: `1px solid ${highlight ? colors.borderC : colors.border}`,
+      borderRadius: radius.lg,
+      boxShadow: highlight ? shadows.md : shadows.sm,
+      ...style,
     }}>
       {children}
     </div>
   );
 }
 
-// ── Section Header ────────────────────────────
+export function StatCard({ label, value, sub, highlight, color, icon }: {
+  label: string; value: string | number; sub?: string;
+  highlight?: boolean; color?: string; icon?: string;
+}) {
+  const c = color ?? colors.ink;
+  return (
+    <Card highlight={highlight} style={{ padding: "16px 18px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <span style={{ fontSize: 10.5, fontWeight: 500, color: colors.inkD, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: fonts.mono }}>
+          {label}
+        </span>
+        {icon && <span style={{ fontSize: 13, opacity: 0.4 }}>{icon}</span>}
+      </div>
+      <div style={{ fontSize: 28, fontWeight: 700, color: c, fontFamily: fonts.sans, letterSpacing: "-0.03em", lineHeight: 1, marginBottom: sub ? 6 : 0 }}>
+        {value}
+      </div>
+      {sub && <div style={{ fontSize: 11.5, color: colors.inkD, fontFamily: fonts.sans, marginTop: 4 }}>{sub}</div>}
+    </Card>
+  );
+}
+
 export function SectionHeader({ title, sub, action }: {
   title: string; sub?: string; action?: React.ReactNode;
 }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20 }}>
       <div>
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: colors.ink, fontFamily: fonts.sans, letterSpacing: "-0.02em", marginBottom: 2 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600, color: colors.ink, fontFamily: fonts.sans, letterSpacing: "-0.02em", marginBottom: 2 }}>
           {title}
         </h2>
         {sub && <p style={{ fontSize: 12.5, color: colors.inkC, fontFamily: fonts.sans }}>{sub}</p>}
@@ -133,44 +142,29 @@ export function SectionHeader({ title, sub, action }: {
   );
 }
 
-// ── Empty State ───────────────────────────────
 export function Empty({ label }: { label: string }) {
   return (
-    <div style={{ textAlign: "center", padding: "48px 0", color: colors.inkD, fontSize: 13, fontFamily: fonts.sans }}>
-      {label}
+    <div style={{ textAlign: "center", padding: "48px 20px" }}>
+      <div style={{ fontSize: 11, color: colors.inkD, fontFamily: fonts.mono, marginBottom: 8, letterSpacing: "0.05em" }}>EMPTY</div>
+      <div style={{ color: colors.inkC, fontSize: 13, fontFamily: fonts.sans }}>{label}</div>
     </div>
   );
 }
 
-// ── Loading ───────────────────────────────────
 export function Loading() {
   return (
-    <div style={{ textAlign: "center", padding: "48px 0", color: colors.inkD, fontSize: 12, fontFamily: fonts.mono }}>
-      loading...
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "48px 0", gap: 6 }}>
+      {[0,1,2].map(i => (
+        <div key={i} style={{
+          width: 4, height: 4, borderRadius: "50%",
+          background: colors.inkD,
+          animation: `pulse-dot 1.4s ease ${i * 0.15}s infinite`,
+        }} />
+      ))}
     </div>
   );
 }
 
-// ── Stat Card ─────────────────────────────────
-export function StatCard({ label, value, sub, accent, color }: {
-  label: string; value: string | number; sub?: string; accent?: boolean; color?: string;
-}) {
-  const c = color ?? (accent ? colors.accent : colors.ink);
-  return (
-    <Card style={{ padding: "18px 20px", position: "relative", overflow: "hidden" }}>
-      {accent && (
-        <div style={{
-          position: "absolute", top: 0, left: 0, right: 0, height: 2,
-          background: `linear-gradient(90deg, ${colors.accent}, transparent)`,
-        }} />
-      )}
-      <div style={{ fontSize: 10.5, fontWeight: 500, color: colors.inkD, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, fontFamily: fonts.mono }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 28, fontWeight: 700, color: c, fontFamily: fonts.mono, letterSpacing: "-0.02em", marginBottom: 3 }}>
-        {value}
-      </div>
-      {sub && <div style={{ fontSize: 11.5, color: colors.inkD, fontFamily: fonts.sans }}>{sub}</div>}
-    </Card>
-  );
+export function Divider() {
+  return <div style={{ height: 1, background: colors.border, margin: "4px 0" }} />;
 }

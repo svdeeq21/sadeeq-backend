@@ -30,7 +30,14 @@ async function sb<T>(
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`Supabase ${path} → ${res.status}`);
-  return res.json();
+  // Supabase returns empty body on PATCH/DELETE — guard against JSON parse crash
+  const text = await res.text();
+  if (!text || text.trim() === "") return [] as T[];
+  try {
+    return JSON.parse(text);
+  } catch {
+    return [] as T[];
+  }
 }
 
 // ── Leads ─────────────────────────────────────

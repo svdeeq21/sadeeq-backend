@@ -195,7 +195,18 @@ async def send_initial_outreach(lead: dict) -> bool:
         from uuid import UUID
         await whatsapp.send_outreach(phone, message, UUID(lead_id))
     except Exception as e:
-        await log.warn("OUTREACH_SEND_FAILED", metadata={"lead_id": lead_id, "error": str(e)})
+        error_str = str(e)
+        # If Evolution API confirms number not on WhatsApp, mark immediately
+        if '"exists":false' in error_str:
+            try:
+                db.table("leads").update({
+                    "status":    "INVALID_NUMBER",
+                    "ai_paused": True,
+                }).eq("id", lead_id).execute()
+                await log.info("LEAD_MARKED_INVALID", metadata={"lead_id": lead_id})
+            except Exception:
+                pass
+        await log.warn("OUTREACH_SEND_FAILED", metadata={"lead_id": lead_id, "error": error_str})
         return False
 
     # Update lead state

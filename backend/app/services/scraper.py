@@ -269,11 +269,48 @@ async def scrape_and_insert(
         await log.warn("SCRAPE_INSERT_FAILED", metadata={"error": str(e)})
         raise RuntimeError(f"Failed to insert leads: {str(e)}")
 
+    # ── Validate WhatsApp numbers immediately after insert ──────
+    # Marks non-WhatsApp numbers as INVALID_NUMBER so they never
+    # enter the outreach queue.
+    try:
+        from app.services.wa_validator import check_numbers_batch
+
+        phones_to_check  = [l["phone_number"] for l in unique_leads]
+        check_results    = await check_numbers_batch(phones_to_check)
+
+        invalid_phones = [p for p, exists in check_results.items() if not exists]
+        valid_count    = len(phones_to_check) - len(invalid_phones)
+
+        if invalid_phones:
+            # Bulk mark invalid numbers
+            db.table("leads").update({
+                "status":    "INVALID_NUMBER",
+                "ai_paused": True,
+            }).in_("phone_number", invalid_phones).execute()
+
+            await log.info(
+                "SCRAPE_WA_VALIDATION",
+                metadata={
+                    "total":   len(phones_to_check),
+                    "valid":   valid_count,
+                    "invalid": len(invalid_phones),
+                },
+            )
+    except Exception as e:
+        await log.warn("SCRAPE_WA_VALIDATION_FAILED", metadata={"error": str(e)})
+        valid_count = len(unique_leads)  # assume all valid if check fails
+        invalid_phones = []
+
+    # Only show valid leads in preview
+    valid_leads = [l for l in unique_leads if l["phone_number"] not in set(invalid_phones if "invalid_phones" in dir() else [])]
+
     return {
-        "scraped": len(raw_results),
-        "new":     len(unique_leads),
-        "skipped": skipped + (len(new_leads) - len(unique_leads)),
-        "leads":   unique_leads[:5],  # preview of first 5
+        "scraped":  len(raw_results),
+        "new":      len(unique_leads),
+        "valid":    valid_count if "valid_count" in dir() else len(unique_leads),
+        "invalid":  len(invalid_phones) if "invalid_phones" in dir() else 0,
+        "skipped":  skipped + (len(new_leads) - len(unique_leads)),
+        "leads":    valid_leads[:5],
     }
 
 

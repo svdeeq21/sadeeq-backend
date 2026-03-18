@@ -137,6 +137,24 @@ async def trigger_batch_scrape(body: BatchScrapeRequest):
         raise HTTPException(status_code=500, detail="Batch scrape failed.")
 
 
+@router.post("/scrape/validate")
+async def validate_pending_leads():
+    """
+    Check all PENDING leads against WhatsApp.
+    Marks numbers not on WhatsApp as INVALID_NUMBER.
+    Run this after any bulk import to clean the pipeline.
+    """
+    try:
+        from app.services.wa_validator import validate_and_mark_leads
+        result = await validate_and_mark_leads()
+        return {
+            "message": f"Validated {result['checked']} leads. {result['valid']} valid, {result['invalid']} marked invalid.",
+            **result,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/scrape/presets")
 async def get_presets():
     """Return preset categories, all 36 states, zones, and area drilldowns."""
