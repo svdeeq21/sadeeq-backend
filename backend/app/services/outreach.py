@@ -312,10 +312,9 @@ async def run_outreach_cycle() -> None:
     # Priority 2: Send initial outreach to next PENDING lead
     pending_result = (
         db.table("leads")
-        .select("id, name, phone_number, business_name, industry")
+        .select("id, name, phone_number, business_name, industry, location, opportunity_analysis, pain_point, suggested_solutions, industry_opening_variant")
         .eq("status", "PENDING")
         .eq("ai_paused", False)
-        .eq("opted_in", True)
         .order("created_at", desc=False)
         .limit(1)
         .execute()
