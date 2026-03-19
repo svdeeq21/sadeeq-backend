@@ -15,7 +15,6 @@
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": {
-      // @ always points to src/ — use this everywhere
       "@/*": ["./src/*"]
     }
   },
