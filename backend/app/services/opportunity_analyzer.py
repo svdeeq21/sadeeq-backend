@@ -250,7 +250,7 @@ async def _llm_analyze(
     profile: dict,
 ) -> dict:
     """Ask the LLM to generate a specific analysis for this business."""
-    import google.generativeai as genai
+    from google import genai
 
     client = genai.Client(api_key=settings.gemini_api_key)
 
@@ -275,7 +275,7 @@ Generate a concise opportunity analysis. Respond ONLY with valid JSON in this ex
     "Specific automation idea 3 — describe the solution and its impact in one sentence"
   ],
   "opportunity_analysis": "2-3 sentence narrative analysis of this business's automation opportunity. Be specific to the industry and location if possible.",
-  "industry_opening_variant": "A value-led opening statement + soft yes/no question for {first_name}. Structure: '[Pain point] is usually where [industry type] businesses lose the most time — is that something you deal with at {business_name}?' Make it sound like you already know their world. Max 1 sentence. Do NOT say 'quick one' or 'random question'. Sound confident and specific."
+  "industry_opening_variant": "A 2-sentence WhatsApp opening message for {first_name}. Sentence 1: establish who Sadiq is and why he is reaching out — max 10 words, e.g. 'Sadiq builds AI automation for Nigerian businesses.' Sentence 2: a pain-specific question tied to their industry — e.g. 'Managing [their specific pain] manually is usually where {industry} businesses lose the most time — is that the case at {business_name}?' Keep the whole thing under 40 words. Confident, specific, not salesy."
 }}
 
 Rules:
@@ -325,7 +325,9 @@ def _rule_based_analysis(business_name: str, industry: str, profile: dict) -> di
             f"Automating this with a WhatsApp AI assistant could significantly reduce manual workload."
         ),
         "industry_opening_variant": (
-            f"Quick one — {profile['opening_hook']}?"
+            f"Sadiq builds AI automation for Nigerian businesses. "
+            f"{profile['opening_hook'].capitalize()} is usually where {industry or 'businesses'} "
+            f"like {business_name} lose the most time — is that something you deal with?"
         ),
     }
 

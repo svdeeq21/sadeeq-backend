@@ -320,3 +320,15 @@ CANNED_SOURCE = (
     "Your business came up while we were looking for companies that might benefit "
     "from AI automation. If it's not relevant, just say the word and I'll leave you be."
 )
+
+
+def get_canned_response(intent: str) -> str | None:
+    """
+    Return a pre-written response for intents that don't need the LLM.
+    Returns None if no canned response applies.
+    """
+    if intent == INTENT_IDENTITY_Q:
+        return CANNED_IDENTITY
+    if intent == INTENT_SOURCE_Q:
+        return CANNED_SOURCE
+    return None
