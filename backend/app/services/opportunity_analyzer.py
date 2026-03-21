@@ -257,32 +257,39 @@ async def _llm_analyze(
     bottlenecks_str = "\n".join(f"- {b}" for b in profile["bottlenecks"])
     loc_str = f" in {location}" if location else ""
 
-    prompt = f"""You are analyzing a business to identify automation opportunities for an AI consultant named Sadiq Shehu.
+    prompt = f"""You are building sales intelligence for a business consultant.
 
 Business: {business_name}{loc_str}
 Industry: {industry}
-Owner: {first_name}
+Owner first name: {first_name}
 
-Common pain points for this type of business:
+Likely pain points for this industry:
 {bottlenecks_str}
 
-Generate a concise opportunity analysis. Respond ONLY with valid JSON in this exact format:
+Respond ONLY with valid JSON. Use outcome language throughout — what the business GETS, not what a system DOES.
+
 {{
-  "pain_point": "One sentence describing the most likely pain point for this specific business",
+  "pain_point": "One sentence in plain human language describing what this business is probably losing or struggling with right now. E.g. 'Customers asking about drug availability on WhatsApp often wait too long and go elsewhere.' No tech jargon.",
   "suggested_solutions": [
-    "Specific automation idea 1 — describe the solution and its impact in one sentence",
-    "Specific automation idea 2 — describe the solution and its impact in one sentence",
-    "Specific automation idea 3 — describe the solution and its impact in one sentence"
+    "What the business experiences after the solution — not the feature. E.g. 'Customers get instant answers to availability and pricing questions on WhatsApp without any staff involvement.'",
+    "Second outcome from a different angle — e.g. 'Orders during busy periods are captured and confirmed automatically so nothing is missed.'",
+    "Third outcome — e.g. 'Staff stop spending hours on repetitive WhatsApp messages and focus on work that needs a human.'"
   ],
-  "opportunity_analysis": "2-3 sentence narrative analysis of this business's automation opportunity. Be specific to the industry and location if possible.",
-  "industry_opening_variant": "A 2-sentence WhatsApp opening message for {first_name}. Sentence 1: establish who Sadiq is and why he is reaching out — max 10 words, e.g. 'Sadiq builds AI automation for Nigerian businesses.' Sentence 2: a pain-specific question tied to their industry — e.g. 'Managing [their specific pain] manually is usually where {industry} businesses lose the most time — is that the case at {business_name}?' Keep the whole thing under 40 words. Confident, specific, not salesy."
+  "opportunity_analysis": "2-3 sentences on WHY this business is a strong fit. Focus on the gap between their current manual process and what is possible. Speak in their language — not tech language.",
+  "industry_opening_variant": "One WhatsApp cold opening message. STRICT RULES: (1) Do NOT mention Sadiq, AI, or automation. (2) Start with observation/proximity language — e.g. 'I've been looking into how [industry] businesses handle...' or 'I came across {business_name}...' — NOT 'most businesses'. (3) Ask ONE easy conversational question about their situation — aim for a natural reply like 'yeah we do' not a yes/no survey. (4) Soft tone — not accusatory. Example: 'Hi {first_name}, I've been looking into how pharmacies handle customer requests on WhatsApp — quick one, do people usually wait a while before getting a reply at {business_name}?' Max 2 sentences, under 40 words. Sound like a real human who noticed something specific."
 }}
 
-Rules:
-- Be specific to {industry}, not generic
-- The opening must lead with a pain statement, not a question about their business
-- It should feel researched, not like a cold survey
-- No fluff, no preamble, valid JSON only"""
+EXAMPLES OF GOOD VS BAD LANGUAGE:
+Bad pain_point: "Manual order management inefficiency"
+Good pain_point: "During busy periods, orders come in faster than staff can reply and some customers don't wait"
+
+Bad solution: "AI chatbot for order automation"
+Good solution: "Every WhatsApp order is automatically received, confirmed, and logged — even during rush hours when staff are overwhelmed"
+
+Bad opening: "Hi, Sadiq builds AI systems that help businesses automate workflows."
+Good opening: "Most food businesses lose orders during busy periods because customers don't get a fast enough reply — is that something that happens at {business_name}?"
+
+Valid JSON only. No markdown, no preamble."""
 
     response = client.models.generate_content(
         model=settings.gemini_model,
@@ -316,18 +323,28 @@ def _rule_based_analysis(business_name: str, industry: str, profile: dict) -> di
         f"Build a system to handle {profile['bottlenecks'][1]} without manual effort",
         f"Create automated follow-up sequences to manage {profile['bottlenecks'][2]}",
     ]
+    # Outcome-led solutions — what they GET, not what the system DOES
+    solutions = [
+        f"Customers get instant replies to {profile['bottlenecks'][0]} without staff being involved",
+        f"Staff stop spending hours on {profile['bottlenecks'][1]} and focus on work that needs a human",
+        f"Nothing falls through the cracks during busy periods when {profile['bottlenecks'][2]} spikes",
+    ]
+
     return {
-        "pain_point": f"{business_name} likely struggles with {bottleneck}",
+        "pain_point": (
+            f"During busy periods, {profile['bottlenecks'][0]} piles up faster than staff can handle it "
+            f"— some customers don't wait and go elsewhere."
+        ),
         "suggested_solutions": solutions,
         "opportunity_analysis": (
-            f"{business_name} operates in {industry or 'a high-touch industry'} where "
-            f"{bottleneck} is a common bottleneck. "
-            f"Automating this with a WhatsApp AI assistant could significantly reduce manual workload."
+            f"{business_name} is dealing with the same challenge most {industry or 'businesses'} face — "
+            f"{profile['bottlenecks'][0]} handled manually means slower responses, missed opportunities, "
+            f"and staff time spent on repetitive work instead of what actually grows the business."
         ),
         "industry_opening_variant": (
-            f"Sadiq builds AI automation for Nigerian businesses. "
-            f"{profile['opening_hook'].capitalize()} is usually where {industry or 'businesses'} "
-            f"like {business_name} lose the most time — is that something you deal with?"
+            f"I've been looking into how {industry or 'businesses like yours'} handle "
+            f"{profile['opening_hook']} — "
+            f"does that ever get hard to keep up with at {business_name}?"
         ),
     }
 

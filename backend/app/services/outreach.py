@@ -166,24 +166,23 @@ async def send_initial_outreach(lead: dict) -> bool:
     industry_hook = lead.get("industry_opening_variant")
 
     if industry_hook:
-        # Use the analyzer's personalized value-led opening.
-        # Structure: pain statement → soft yes/no confirmation question.
+        # Use the analyzer's outcome-led hook.
+        # The hook is a complete opening already — just clean and prefix.
         first_name    = (lead.get("name") or "there").split()[0]
         business_name = lead.get("business_name") or "your business"
 
-        if business_name and business_name != "your business":
-            message = f"Hi {first_name} — {industry_hook}"
+        hook = industry_hook.strip()
+        # If the hook already starts with Hi, just do placeholder replacement
+        if hook.lower().startswith("hi "):
+            message = hook.replace("{name}", first_name).replace("{business_name}", business_name)
         else:
-            message = f"Hi {first_name}, {industry_hook}"
+            message = f"Hi {first_name}, {hook}".replace("{business_name}", business_name)
 
-        # Pick the best-performing fallback variant for tracking purposes only.
-        # This lets the A/B system measure which industries respond best
-        # even though the actual message came from the analyzer.
+        # Pick a variant for A/B tracking even though message came from analyzer
         variant = _pick_variant(db, "opening")
-        # Tag this outreach as analyzer-generated in the variant tracking note
         analyzer_generated = True
     else:
-        # No analyzer hook available — use a database variant directly.
+        # No analyzer hook — pick a database variant directly
         variant = _pick_variant(db, "opening")
         if not variant:
             await log.warn("NO_OPENING_VARIANT", metadata={"lead_id": lead_id})
