@@ -21,7 +21,7 @@ app = FastAPI(
 # ── CORS ─────────────────────────────────────────────────────────
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "https://svdeeq-crm.vercel.app",
+    "https://sadeeq-backend-s695.vercel.app",
 ]
 
 app.add_middleware(
