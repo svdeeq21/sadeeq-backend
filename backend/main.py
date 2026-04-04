@@ -21,7 +21,7 @@ app = FastAPI(
 # ── CORS ─────────────────────────────────────────────────────────
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "https://sadeeq-backend-s695.vercel.app",
+    "https://svdeeq-crm.vercel.app",
 ]
 
 app.add_middleware(
@@ -48,11 +48,13 @@ async def http_exception_handler(request, exc: FastAPIHTTPException):
 @app.on_event("startup")
 async def startup_event():
     start_scheduler()
+    queue_consumer.start()   # Start Upstash queue consumer
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     stop_scheduler()
+    queue_consumer.stop()    # Stop queue consumer
 
 # ── Routers ───────────────────────────────────────────────────────
 app.include_router(health.router)

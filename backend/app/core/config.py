@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     # ── Scraper ──────────────────────────────────────────────────
     serpapi_key: str = ""                       # get free key at serpapi.com
 
+    # ── Upstash Redis Queue ───────────────────────────────────────
+    upstash_redis_rest_url:   str = ""          # from upstash.com dashboard
+    upstash_redis_rest_token: str = ""          # from upstash.com dashboard
+    queue_enabled:            bool = True       # False = bypass queue (direct webhook mode)
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
