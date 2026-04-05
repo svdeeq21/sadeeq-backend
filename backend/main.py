@@ -48,13 +48,13 @@ async def http_exception_handler(request, exc: FastAPIHTTPException):
 @app.on_event("startup")
 async def startup_event():
     start_scheduler()
-    queue_consumer.start()   # Start Upstash queue consumer
+    # queue_consumer.start()   # Start Upstash queue consumer
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     stop_scheduler()
-    queue_consumer.stop()    # Stop queue consumer
+    # queue_consumer.stop()    # Stop queue consumer
 
 # ── Routers ───────────────────────────────────────────────────────
 app.include_router(health.router)
