@@ -22,7 +22,7 @@ WAT = timezone(timedelta(hours=1))
 MORNING_START  = 9
 MORNING_END    = 12
 AFTERNOON_START = 14
-AFTERNOON_END  = 23  # 17:30
+AFTERNOON_END  = 17.5  # 17:30
 
 # Follow-up schedule in days
 FOLLOWUP_DAYS = {
