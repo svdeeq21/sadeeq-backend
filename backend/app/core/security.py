@@ -49,14 +49,15 @@ settings = get_settings()
 async def verify_webhook_signature(request: Request) -> bytes:
     raw_body = await request.body()
     
-    # Evolution API sends the instance key in the 'apikey' header automatically
-    token = request.headers.get("apikey")
+    # Evolution API v2 sends the instance/global key in the 'apikey' header
+    # We also check 'Authorization' just in case your version uses that
+    token = request.headers.get("apikey") or request.headers.get("Authorization")
 
-    # This compares the incoming key to the one you have in Render
+    # This compares it to the EVOLUTION_API_KEY you already have in Render
     if not token or token != settings.evolution_api_key:
         raise HTTPException(
             status_code=401,
-            detail="Invalid or missing Webhook API Key",
+            detail="Webhook Unauthorized: Invalid or missing API Key",
         )
     
     return raw_body
