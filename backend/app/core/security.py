@@ -21,28 +21,44 @@ settings = get_settings()
 #
 # We verify it here before touching any payload data.
 
+# async def verify_webhook_signature(request: Request) -> bytes:
+#     raw_body = await request.body()
+
+#     if not raw_body:
+#         raise HTTPException(status_code=400, detail="Empty request body")
+
+#     signature_header = request.headers.get("x-hub-signature-256", "")
+
+#     if not signature_header:
+#         raise HTTPException(
+#             status_code=401,
+#             detail="Missing X-Hub-Signature-256 header",
+#         )
+
+#     expected = f"sha256={settings.webhook_secret}"
+
+#     if signature_header != expected:
+#         raise HTTPException(
+#             status_code=401,
+#             detail="Invalid webhook signature",
+#         )
+
+#     return raw_body
+# The one above is the main one, but due to some reasons i have to try this 
+
 async def verify_webhook_signature(request: Request) -> bytes:
     raw_body = await request.body()
+    
+    # Evolution API sends the instance key in the 'apikey' header automatically
+    token = request.headers.get("apikey")
 
-    if not raw_body:
-        raise HTTPException(status_code=400, detail="Empty request body")
-
-    signature_header = request.headers.get("x-hub-signature-256", "")
-
-    if not signature_header:
+    # This compares the incoming key to the one you have in Render
+    if not token or token != settings.evolution_api_key:
         raise HTTPException(
             status_code=401,
-            detail="Missing X-Hub-Signature-256 header",
+            detail="Invalid or missing Webhook API Key",
         )
-
-    expected = f"sha256={settings.webhook_secret}"
-
-    if signature_header != expected:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid webhook signature",
-        )
-
+    
     return raw_body
 
 
