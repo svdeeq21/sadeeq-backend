@@ -112,7 +112,7 @@ def _clean_name(raw: str | None) -> str | None:
     name = re.sub(r"\s*(ltd|limited|nigeria|nig|enterprises|enterprise|co\.|company)\.?$", "", raw, flags=re.IGNORECASE)
     return name.strip() or raw.strip()
 
-
+# 
 # ── SerpAPI call ──────────────────────────────────────────────────
 
 async def _fetch_serpapi(query: str, location: str) -> list[dict]:
