@@ -17,6 +17,9 @@ Transitions are driven by:
   - Keyword signals in latest message
   - Explicit confirmation/rejection patterns
 """
+# =========================
+# CONVERSATION STATE v2 (ADAPTIVE)
+# =========================
 
 import re
 import logging
@@ -26,7 +29,7 @@ from app.utils.logger import log
 
 _l = logging.getLogger("svdeeq")
 
-# ── State constants ───────────────────────────────────────────────
+# ── States ───────────────────────────────────────────────
 COLD        = "COLD"
 DISCOVERY   = "DISCOVERY"
 PITCH       = "PITCH"
@@ -35,34 +38,26 @@ BOOKED      = "BOOKED"
 NURTURE     = "NURTURE"
 DEAD        = "DEAD"
 
-ALL_STATES = [COLD, DISCOVERY, PITCH, CALL_INVITE, BOOKED, NURTURE, DEAD]
+# ── Patterns ─────────────────────────────────────────────
 
-# ── Signal patterns ───────────────────────────────────────────────
 CALL_CONFIRM = [
-    r"\byes\b", r"\bsure\b", r"\bokay\b", r"\bok\b", r"\blet'?s\b",
-    r"\bsounds good\b", r"\bi'?m in\b", r"\bgo ahead\b", r"\bproceed\b",
-    r"\bcount me in\b", r"\bbook\b", r"\bschedule\b", r"\bconfirm\b",
-    r"\bwhen.*call\b", r"\bwhat.*time\b",
+    r"\byes\b", r"\bsure\b", r"\bokay\b", r"\blet'?s\b",
+    r"\bbook\b", r"\bschedule\b", r"\bwhen\b", r"\btime\b"
 ]
 
 CALL_REJECT = [
-    r"\bnot (now|ready|interested)\b", r"\bmaybe later\b", r"\bbusy\b",
-    r"\bno thanks\b", r"\bno,?\s*thank", r"\bnot for me\b",
-    r"\bdon'?t (need|want)\b", r"\bpass\b",
+    r"\bnot now\b", r"\bmaybe later\b", r"\bbusy\b",
+    r"\bno thanks\b", r"\bnot interested\b"
 ]
 
-DISCOVERY_SIGNALS = [
-    r"\bwe\b", r"\bour\b", r"\bmy business\b", r"\bwe (do|sell|offer|provide|have)\b",
-    r"\bi (run|own|manage|work)\b", r"\bcompany\b", r"\bstartup\b",
-    r"\bproblem\b", r"\bchallenge\b", r"\bstruggl\b", r"\bissue\b",
-    r"\bmanual\b", r"\brepetitive\b", r"\btime.consum\b",
+OBJECTION = [
+    r"\bnot sure\b", r"\bdon'?t think\b", r"\bwon'?t work\b",
+    r"\btoo expensive\b", r"\bno budget\b"
 ]
 
-HIGH_INTEREST = [
-    r"\bhow much\b", r"\bprice\b", r"\bcost\b", r"\bbudget\b",
-    r"\binterested\b", r"\btell me more\b", r"\bsend.*more\b",
-    r"\bwhat.*include\b", r"\bhow.*work\b", r"\bwhen.*start\b",
-    r"\bexamples?\b", r"\bportfolio\b", r"\bprevious.*work\b",
+HIGH_INTENT = [
+    r"\bhow much\b", r"\bprice\b", r"\bcost\b",
+    r"\binterested\b", r"\bshow me\b", r"\bdemo\b"
 ]
 
 
@@ -71,12 +66,34 @@ def _matches(text: str, patterns: list[str]) -> bool:
     return any(re.search(p, t) for p in patterns)
 
 
-def _count_state_messages(messages: list[dict], state: str) -> int:
-    """Count how many AI messages were sent while lead was in this state."""
-    # Rough proxy: count AI messages after the state was set.
-    # We don't store per-message state, so we use total exchange count.
-    return sum(1 for m in messages if m.get("sender") == "AI")
+def _recent_user_messages(messages: list[dict], n=3) -> list[str]:
+    return [
+        (m.get("content") or "").lower()
+        for m in messages if m.get("sender") == "USER"
+    ][-n:]
 
+
+def _momentum(messages: list[dict]) -> str:
+    """
+    Returns: "RISING", "FLAT", "DROPPING"
+    """
+    recent = _recent_user_messages(messages, 3)
+
+    score = 0
+    for msg in recent:
+        if _matches(msg, HIGH_INTENT):
+            score += 1
+        elif _matches(msg, OBJECTION):
+            score -= 1
+
+    if score >= 2:
+        return "RISING"
+    if score <= -1:
+        return "DROPPING"
+    return "FLAT"
+
+
+# ── Core Logic ───────────────────────────────────────────
 
 def determine_next_state(
     current_state: str,
@@ -87,90 +104,99 @@ def determine_next_state(
     intent: str = "NEUTRAL",
     lead_profile: dict | None = None,
 ) -> str:
-    """
-    Core state transition logic.
-    Returns the next state (may be the same if no transition needed).
-    """
-    ai_count   = sum(1 for m in messages if m.get("sender") == "AI")
-    user_count = sum(1 for m in messages if m.get("sender") == "USER")
-    text       = latest_message.lower()
 
-    # ── Terminal states — no transition out ──────────────────────
-    if current_state == BOOKED:
-        return BOOKED
-    if current_state == DEAD:
-        return DEAD
+    text = latest_message.lower()
+    momentum = _momentum(messages)
 
-    # ── Negative intent — move to NURTURE regardless of stage ────
+    # ── Terminal ─────────────────────────
+    if current_state in (BOOKED, DEAD):
+        return current_state
+
+    # ── HARD INTERRUPTS ──────────────────
+
+    # Objection overrides flow — DO NOT advance
+    if intent == "OBJECTION" or _matches(text, OBJECTION):
+        return current_state  # HOLD and handle objection in response layer
+
+    # Strong negative → nurture
     if intent == "NEGATIVE":
         return NURTURE
 
-    # ── Use lead profile to fast-track DISCOVERY → PITCH ─────────
-    profile = lead_profile or {}
-    if (current_state == DISCOVERY
-            and profile.get("problem_identified")
-            and profile.get("business_described")):
-        # Enough info — don't wait for turn count, advance now
-        if interest_score >= 0.3 or user_count >= 2:
-            return PITCH
+    # ── CALL STAGE ──────────────────────
 
-    # ── CALL_INVITE → resolution ─────────────────────────────────
     if current_state == CALL_INVITE:
-        # Strict: only BOOKED if explicit CONFIRM_CALL intent AND not a question
-        if intent == "CONFIRM_CALL" and "?" not in latest_message:
+        if _matches(text, CALL_CONFIRM):
             return BOOKED
-        if intent in ("NEGATIVE", "STOP") or _matches(text, CALL_REJECT):
-            return NURTURE
-        # Still waiting — stay in CALL_INVITE for up to 2 more exchanges
-        if ai_count >= 8:
-            return NURTURE
-        return CALL_INVITE
 
-    # ── NURTURE → re-engage ──────────────────────────────────────
+        if _matches(text, CALL_REJECT):
+            return NURTURE
+
+        # If momentum drops, don't keep pushing
+        if momentum == "DROPPING":
+            return NURTURE
+
+        return CALL_INVITE  # HOLD
+
+    # ── NURTURE ─────────────────────────
+
     if current_state == NURTURE:
-        if _matches(text, HIGH_INTEREST) or interest_score >= 0.5:
-            return PITCH
+        if interest_score >= 0.55 or _matches(text, HIGH_INTENT):
+            return PITCH  # reactivation
         return NURTURE
 
-    # ── COLD → DISCOVERY ─────────────────────────────────────────
+    # ── COLD ────────────────────────────
+
     if current_state == COLD:
-        # First reply always moves to DISCOVERY
         return DISCOVERY
 
-    # ── DISCOVERY → PITCH ────────────────────────────────────────
+    # ── DISCOVERY ───────────────────────
+
     if current_state == DISCOVERY:
-        # Advance to PITCH if:
-        # 1. Lead has shared business info (discovery signals)
-        # 2. High interest score
-        # 3. Or we've had enough exchanges to know their context
-        has_context   = _matches(text, DISCOVERY_SIGNALS)
-        high_interest = _matches(text, HIGH_INTEREST) or interest_score >= 0.55
-        enough_turns  = user_count >= 3
 
-        if high_interest:
-            return PITCH  # fast-track for hot leads
-        if has_context and enough_turns:
+        has_context = bool(lead_profile and lead_profile.get("problem_identified"))
+
+        # Fast track if strong intent
+        if interest_score >= 0.6 or _matches(text, HIGH_INTENT):
             return PITCH
-        if user_count >= 5:
-            return PITCH  # force advance after 5 turns
+
+        # If momentum rising and we have context → move
+        if momentum == "RISING" and has_context:
+            return PITCH
+
+        # If conversation is flat → HOLD (this is new and important)
+        if momentum == "FLAT":
+            return DISCOVERY
+
+        # Force move only if dragging too long
+        if len(messages) > 8:
+            return PITCH
+
         return DISCOVERY
 
-    # ── PITCH → CALL_INVITE ──────────────────────────────────────
+    # ── PITCH ───────────────────────────
+
     if current_state == PITCH:
-        # Push for call if:
-        # 1. Lead is very interested (high score)
-        # 2. Or after 2 pitch exchanges
-        pitch_ai_turns = max(0, ai_count - 3)  # approx turns since PITCH started
-        if interest_score >= 0.6 or pitch_ai_turns >= 2:
+
+        # If objection appears → HOLD
+        if _matches(text, OBJECTION):
+            return PITCH
+
+        # If strong buying signal → go for call
+        if interest_score >= 0.7 or momentum == "RISING":
             return CALL_INVITE
+
+        # If momentum drops → don't push call yet
+        if momentum == "DROPPING":
+            return PITCH
+
         return PITCH
 
-    # Default — stay put
     return current_state
 
 
+# ── DB Helpers (unchanged) ───────────────────────────────
+
 async def get_lead_state(lead_id: UUID) -> str:
-    """Fetch current conversation state from DB. Defaults to COLD."""
     db = get_supabase()
     try:
         result = (
@@ -186,7 +212,6 @@ async def get_lead_state(lead_id: UUID) -> str:
 
 
 async def save_lead_state(lead_id: UUID, state: str) -> None:
-    """Persist new conversation state to DB."""
     db = get_supabase()
     try:
         db.table("leads").update({"conversation_state": state}).eq("id", str(lead_id)).execute()
@@ -203,11 +228,9 @@ async def advance_state(
     intent: str = "NEUTRAL",
     lead_profile: dict | None = None,
 ) -> tuple[str, str]:
-    """
-    Load current state, compute next state, save if changed.
-    Returns (old_state, new_state).
-    """
+
     current = lead.get("conversation_state") or COLD
+
     next_state = determine_next_state(
         current_state=current,
         lead=lead,
@@ -221,7 +244,8 @@ async def advance_state(
     if next_state != current:
         await save_lead_state(lead_id, next_state)
         await log.info("STATE_TRANSITION", lead_id=lead_id, metadata={
-            "from": current, "to": next_state,
+            "from": current,
+            "to": next_state,
             "interest_score": interest_score,
         })
 
