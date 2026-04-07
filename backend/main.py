@@ -22,13 +22,14 @@ app = FastAPI(
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://svdeeq-crm.vercel.app",
+    "*"
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH"],
+    allow_methods=["*"], #"GET", "POST", "PATCH",
     allow_headers=["*"],
 )
 
