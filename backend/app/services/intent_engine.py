@@ -95,7 +95,15 @@ class IntentEngine:
         return intent_data.get("intent") == "NEGATIVE"
     
     # bottom of intent_engine.py
+# ... all your class code above ...
+
+# 1. Create the single instance the app will use
 engine = IntentEngine()
 
+# 2. Map the module-level function calls to the class methods
 def detect_intent(message: str) -> dict:
     return engine.detect_intent(message)
+
+def is_hard_exit(intent_data: dict) -> bool:
+    # IMPORTANT: Ensure this matches the method name in your class
+    return engine.is_hard_exit(intent_data)
