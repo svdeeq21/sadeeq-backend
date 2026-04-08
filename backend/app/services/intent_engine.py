@@ -88,3 +88,9 @@ class IntentEngine:
             "skepticism": bool(re.search(r"\b(not sure|how do i know|what if)\b", message)),
             "urgency": bool(re.search(r"\b(now|asap|quickly|immediately)\b", message))
         }
+    
+    # bottom of intent_engine.py
+engine = IntentEngine()
+
+def detect_intent(message: str) -> dict:
+    return engine.detect_intent(message)
