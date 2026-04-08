@@ -88,6 +88,11 @@ class IntentEngine:
             "skepticism": bool(re.search(r"\b(not sure|how do i know|what if)\b", message)),
             "urgency": bool(re.search(r"\b(now|asap|quickly|immediately)\b", message))
         }
+    # ... inside your IntentEngine class ...
+    def is_hard_exit(self, intent_data: dict) -> bool:
+        # Check if the primary intent is NEGATIVE
+        # You can expand this logic later
+        return intent_data.get("intent") == "NEGATIVE"
     
     # bottom of intent_engine.py
 engine = IntentEngine()
