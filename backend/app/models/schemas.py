@@ -3,8 +3,8 @@
 # All Pydantic models used across routers and services.
 # Single source of truth for request/response shapes.
 
-from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, Literal, Union
 from datetime import datetime
 from uuid import UUID
 
@@ -13,14 +13,19 @@ from uuid import UUID
 #
 # Evolution API sends a webhook for every WA event.
 # We only care about message events here.
+#
+# Evolution quirks we handle:
+#   1. `data` is sometimes a LIST (batch delivery events) — unwrapped to first item
+#   2. Some events (read receipts, status updates) are missing `key` and `messageType`
+#      — those fields are Optional; webhook.py drops them early.
 
 class WAMessageData(BaseModel):
     """The message object nested inside the webhook payload."""
-    key: Optional[dict] = None     # contains remoteJid (phone number) and id (wa_message_id)
-    message: Optional[dict] = None # contains conversation (text) or other media types
-    messageType: Optional[str] = None  # e.g. "conversation", "imageMessage", "audioMessage"
-    pushName: Optional[str] = None # contact display name
-    status: Optional[str] = None
+    key:         Optional[dict] = None  # contains remoteJid and message id
+    message:     Optional[dict] = None  # contains conversation text or media
+    messageType: Optional[str]  = None  # e.g. "conversation", "imageMessage"
+    pushName:    Optional[str]  = None  # contact display name
+    status:      Optional[str]  = None
 
 
 class WAWebhookPayload(BaseModel):
@@ -28,19 +33,22 @@ class WAWebhookPayload(BaseModel):
     Top-level Evolution API webhook payload.
     event: the event type, e.g. "messages.upsert"
     instance: your Evolution instance name
-    data: the actual message data — Evolution sometimes sends a list (batch), we take the first item.
+    data: the actual message data
     """
-    event: str
+    event:    str
     instance: str
-    data: WAMessageData
+    data:     WAMessageData
 
+    @field_validator("data", mode="before")
     @classmethod
-    def model_validate(cls, obj, *args, **kwargs):
-        # Evolution API sends data as a list for some batch events — unwrap to first item
-        if isinstance(obj, dict) and isinstance(obj.get("data"), list):
-            items = obj["data"]
-            obj = {**obj, "data": items[0] if items else {}}
-        return super().model_validate(obj, *args, **kwargs)
+    def unwrap_data_list(cls, v):
+        """
+        Evolution API sometimes sends `data` as a list (batch events).
+        Unwrap to first item so the rest of the schema validates normally.
+        """
+        if isinstance(v, list):
+            return v[0] if v else {}
+        return v
 
 
 # ── Lead schemas ─────────────────────────────────────────────────
