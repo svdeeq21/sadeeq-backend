@@ -50,6 +50,10 @@ async def whatsapp_webhook(
     if payload.event not in HANDLED_EVENTS:
         return {"status": "ignored", "event": payload.event}
 
+    # Drop events that are missing required message fields (e.g. read receipts, delivery status)
+    if not payload.data.key or not payload.data.messageType:
+        return {"status": "ignored", "reason": "missing_key_or_type"}
+
     # Ignore messages sent BY us (fromMe=True) to prevent echo loops
     if payload.data.key.get("fromMe"):
         return {"status": "ignored", "reason": "own_message"}

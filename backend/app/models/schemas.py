@@ -16,9 +16,9 @@ from uuid import UUID
 
 class WAMessageData(BaseModel):
     """The message object nested inside the webhook payload."""
-    key: dict                      # contains remoteJid (phone number) and id (wa_message_id)
+    key: Optional[dict] = None     # contains remoteJid (phone number) and id (wa_message_id)
     message: Optional[dict] = None # contains conversation (text) or other media types
-    messageType: str               # e.g. "conversation", "imageMessage", "audioMessage"
+    messageType: Optional[str] = None  # e.g. "conversation", "imageMessage", "audioMessage"
     pushName: Optional[str] = None # contact display name
     status: Optional[str] = None
 
@@ -28,11 +28,19 @@ class WAWebhookPayload(BaseModel):
     Top-level Evolution API webhook payload.
     event: the event type, e.g. "messages.upsert"
     instance: your Evolution instance name
-    data: the actual message data
+    data: the actual message data — Evolution sometimes sends a list (batch), we take the first item.
     """
     event: str
     instance: str
     data: WAMessageData
+
+    @classmethod
+    def model_validate(cls, obj, *args, **kwargs):
+        # Evolution API sends data as a list for some batch events — unwrap to first item
+        if isinstance(obj, dict) and isinstance(obj.get("data"), list):
+            items = obj["data"]
+            obj = {**obj, "data": items[0] if items else {}}
+        return super().model_validate(obj, *args, **kwargs)
 
 
 # ── Lead schemas ─────────────────────────────────────────────────
