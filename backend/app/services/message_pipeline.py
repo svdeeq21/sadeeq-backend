@@ -85,7 +85,7 @@ async def _process_inner(
     # ── Find lead by phone number ─────────────────────────────────
     lead_result = (
         db.table("leads")
-        .select("id, name, status, ai_paused, outreach_variant, conversation_state, interest_score, follow_up_count, last_outreach_at")
+        .select("id, name, status, ai_paused, outreach_variant, conversation_state, interest_score, follow_up_count, last_outreach_at, industry, pain_point, suggested_solutions, opportunity_analysis, objection_type, pressure_level")
         .eq("phone_number", phone_number)
         .execute()
     )
@@ -162,11 +162,8 @@ async def _process_inner(
         if settings.admin_whatsapp_number:
             admin_alert = (
                 f"📎 *Media received from lead*\n\n"
-                f"Phone: +{phone_number}\n"
-                f"Type: {message_type}\n"
-                f"Name: {lead_name}\n\n"
-                f"To resume AI for this lead reply:\n"
-                f"RESUME {phone_number}"
+                f"Phone: +{phone_number}\nType: {message_type}\nName: {lead_name}\n\n"
+                f"To resume AI reply:\nRESUME {phone_number}"
             )
             try:
                 from uuid import UUID as _UUID
@@ -177,24 +174,24 @@ async def _process_inner(
         await log.info("MEDIA_HANDLED", lead_id=lead_id, metadata={"type": message_type})
         return
 
-    # ── Intent detection ─────────────────────────────────────────
-    intent = intent_engine.detect_intent(message_text)
+    # ── Intent detection ──────────────────────────────────────────
+    intent_data = intent_engine.detect_intent(message_text)
+    intent      = intent_data.get("intent", "NEUTRAL")
 
-    # Hard exit — STOP / remove me / tired of answering
-    if intent_engine.is_hard_exit(intent):
+    # ── Hard exit — STOP / opted out ─────────────────────────────
+    if intent == "HARD_EXIT" or message_text.strip().upper() == "STOP":
         db.table("leads").update({"status": "OPTED_OUT", "ai_paused": True}).eq("id", str(lead_id)).execute()
         await whatsapp.send_message(phone_number, "Understood, I'll remove you from our list. Take care!", lead_id)
-        await log.info("LEAD_OPTED_OUT", lead_id=lead_id, metadata={"reason": "hard_exit_intent"})
+        await log.info("LEAD_OPTED_OUT", lead_id=lead_id)
         return
 
-    # Also catch raw "STOP" keyword
-    if message_text.strip().upper() == "STOP":
-        db.table("leads").update({"status": "OPTED_OUT", "ai_paused": True}).eq("id", str(lead_id)).execute()
-        await whatsapp.send_message(phone_number, "You've been unsubscribed. We won't contact you again.", lead_id)
-        return
+    # Soft negative — is_hard_exit catches NEGATIVE intent too
+    if intent_engine.is_hard_exit(intent_data) and intent != "HARD_EXIT":
+        # NEGATIVE intent — don't opt out, just note it and continue to LLM
+        pass
 
-    # Canned responses — identity/source questions answered directly without LLM
-    canned = intent_engine.get_canned_response(intent)
+    # ── Canned responses ──────────────────────────────────────────
+    canned = intent_engine.get_canned_response(intent_data)
     if canned:
         db.table("messages").insert({
             "lead_id": str(lead_id), "sender": "AI", "content": canned,
@@ -205,18 +202,16 @@ async def _process_inner(
         await log.info("CANNED_RESPONSE_SENT", lead_id=lead_id, metadata={"intent": intent})
         return
 
-    # ── Handle human request ──────────────────────────────────────
+    # ── Human escalation request ──────────────────────────────────
     if escalation.user_requested_human(message_text):
         await escalation.escalate(lead_id, "HUMAN_REQUESTED")
 
         if settings.admin_whatsapp_number:
             admin_alert = (
                 f"🙋 *Lead requested human*\n\n"
-                f"Phone: +{phone_number}\n"
-                f"Name: {lead_name}\n"
+                f"Phone: +{phone_number}\nName: {lead_name}\n"
                 f"Message: {message_text[:100]}\n\n"
-                f"To resume AI after handling reply:\n"
-                f"RESUME {phone_number}"
+                f"To resume AI reply:\nRESUME {phone_number}"
             )
             try:
                 from uuid import UUID as _UUID
@@ -227,7 +222,7 @@ async def _process_inner(
         await whatsapp.send_message(phone_number, "Of course! I'll connect you with Sadiq shortly.", lead_id)
         return
 
-    # ── Fetch messages for state machine ─────────────────────────
+    # ── Fetch full message history ────────────────────────────────
     try:
         msgs_result = (
             db.table("messages")
@@ -240,17 +235,16 @@ async def _process_inner(
     except Exception:
         all_messages = []
 
-    # ── Extract lead profile (prevents question loops) ───────────
+    # ── Extract lead profile ──────────────────────────────────────
     lead_profile = intent_engine.extract_lead_profile(all_messages)
     bant_flags   = intent_engine.detect_bant_flags(all_messages)
 
-    # Apply name correction if user provided it
+    # Apply confirmed name
     if lead_profile.get("name_confirmed"):
         lead_name = lead_profile["name_confirmed"]
         db.table("leads").update({"name": lead_name}).eq("id", str(lead_id)).execute()
 
-    # ── Save structured memory to leads table ────────────────
-    # Persist pain point and objections discovered in conversation
+    # Persist pain point and objections
     memory_patch: dict = {}
     if lead_profile.get("pain_point_text"):
         memory_patch["pain_point"] = lead_profile["pain_point_text"]
@@ -261,6 +255,46 @@ async def _process_inner(
             db.table("leads").update(memory_patch).eq("id", str(lead_id)).execute()
         except Exception:
             pass
+
+    # ── Objection tracking — update pressure_level ────────────────
+    current_objection_type  = lead.get("objection_type") or ""
+    current_pressure_level  = lead.get("pressure_level") or 0
+
+    if intent == "OBJECTION":
+        new_objection_type = intent_engine.classify_objection(message_text)
+
+        # Reset pressure if this is a NEW type of objection
+        if new_objection_type != current_objection_type:
+            current_pressure_level = 1
+            current_objection_type = new_objection_type
+        else:
+            # Same objection persisting — escalate pressure (max 4 = graceful exit)
+            current_pressure_level = min(current_pressure_level + 1, 4)
+
+        try:
+            db.table("leads").update({
+                "objection_type":  current_objection_type,
+                "pressure_level":  current_pressure_level,
+            }).eq("id", str(lead_id)).execute()
+            await log.info("OBJECTION_TRACKED", lead_id=lead_id, metadata={
+                "type":     current_objection_type,
+                "pressure": current_pressure_level,
+            })
+        except Exception as e:
+            await log.warn("OBJECTION_TRACK_FAILED", lead_id=lead_id, metadata={"error": str(e)})
+
+    elif intent in ("AFFIRMATION", "BUY_SIGNAL", "BOOKED"):
+        # Positive signal — reset objection state
+        if current_pressure_level > 0:
+            try:
+                db.table("leads").update({
+                    "objection_type": "",
+                    "pressure_level": 0,
+                }).eq("id", str(lead_id)).execute()
+            except Exception:
+                pass
+            current_objection_type = ""
+            current_pressure_level = 0
 
     # ── Advance conversation state ────────────────────────────────
     try:
@@ -278,25 +312,18 @@ async def _process_inner(
         current_state = lead.get("conversation_state") or "COLD"
         old_state = current_state
 
-    # ── If just BOOKED — notify Sadiq ────────────────────────────
+    # ── Notify on booking ─────────────────────────────────────────
     if current_state == "BOOKED" and old_state != "BOOKED":
         await log.info("LEAD_BOOKED", lead_id=lead_id, metadata={"phone": phone_number, "name": lead_name})
         if settings.admin_whatsapp_number:
             booking_alert = (
-                f"🎉 *Call Booked!*\n\n"
-                f"Name: {lead_name}\n"
-                f"Phone: +{phone_number}\n\n"
+                f"🎉 *Call Booked!*\n\nName: {lead_name}\nPhone: +{phone_number}\n\n"
                 f"Their message: _{message_text[:150]}_\n\n"
                 f"Follow up now on +{phone_number} to confirm the time."
             )
             try:
                 from uuid import UUID as _UUID
-                await whatsapp.send_message(
-                    settings.admin_whatsapp_number,
-                    booking_alert,
-                    _UUID(int=0),
-                )
-                await log.info("BOOKING_ALERT_SENT", lead_id=lead_id)
+                await whatsapp.send_message(settings.admin_whatsapp_number, booking_alert, _UUID(int=0))
             except Exception as e:
                 await log.warn("BOOKING_ALERT_FAILED", lead_id=lead_id, metadata={"error": str(e)})
 
@@ -316,9 +343,19 @@ async def _process_inner(
         rag_chunks = []
         context.rag_chunks = []
 
-    # ── Call LLM ──────────────────────────────────────────────────
+    # ── Call LLM ─────────────────────────────────────────────────
     try:
-        reply_text, provider_used = await llm.generate_reply(context, message_text, conversation_state=current_state, lead_profile=lead_profile, lead=lead, bant_flags=bant_flags, intent=intent)
+        reply_text, provider_used = await llm.generate_reply(
+            context,
+            message_text,
+            conversation_state=current_state,
+            lead_profile=lead_profile,
+            lead=lead,
+            bant_flags=bant_flags,
+            intent=intent,
+            pressure_level=current_pressure_level,
+            objection_type=current_objection_type,
+        )
     except Exception as e:
         await log.error("LLM_FAILED", lead_id=lead_id, metadata={"error": str(e)})
         return
@@ -341,16 +378,13 @@ async def _process_inner(
     if provider_used != "rule_based":
         db.table("leads").update({"status": "AI_RESPONDED"}).eq("id", str(lead_id)).execute()
 
-    # ── Safety guardrails before sending ────────────────────────
-    # Block hallucinated call agreements
-    if "agreed to" in reply_text.lower() and not intent_engine.is_call_confirmed(intent, message_text):
-        reply_text = reply_text  # will regenerate below if needed
-        # Check if response falsely claims booking
-        if any(p in reply_text.lower() for p in ["you've agreed", "you agreed", "you confirmed", "you've confirmed"]):
+    # ── Safety guardrails ─────────────────────────────────────────
+    if any(p in reply_text.lower() for p in ["you've agreed", "you agreed", "you confirmed", "you've confirmed"]):
+        if not intent_engine.is_call_confirmed(intent_data, message_text):
             await log.warn("GUARDRAIL_BLOCKED_FAKE_AGREEMENT", lead_id=lead_id)
             reply_text = "Of course! Feel free to ask anything else — I'm happy to help."
 
-    # Block if lead is opted out (double-check)
+    # Block if opted out mid-pipeline
     fresh_lead = db.table("leads").select("status, ai_paused").eq("id", str(lead_id)).execute()
     if fresh_lead.data:
         fl = fresh_lead.data[0]
@@ -367,17 +401,14 @@ async def _process_inner(
 
     # ── Log result ────────────────────────────────────────────────
     top_score = rag_chunks[0].similarity if rag_chunks else 0.0
-
-    await log.info(
-        "AI_REPLIED",
-        lead_id=lead_id,
-        metadata={
-            "latency_ms":    latency_ms,
-            "rag_score":     round(top_score, 4),
-            "chunks_used":   len(rag_chunks),
-            "provider_used": provider_used,
-        },
-    )
+    await log.info("AI_REPLIED", lead_id=lead_id, metadata={
+        "latency_ms":    latency_ms,
+        "rag_score":     round(top_score, 4),
+        "chunks_used":   len(rag_chunks),
+        "provider_used": provider_used,
+        "pressure_level": current_pressure_level,
+        "objection_type": current_objection_type,
+    })
 
     # ── Update summary if needed ──────────────────────────────────
     try:
@@ -396,8 +427,8 @@ async def _process_inner(
 
 async def _handle_resume_command(message_text: str, admin_phone: str) -> None:
     db = get_supabase()
-
     parts = message_text.split()
+
     if len(parts) < 2:
         try:
             from uuid import UUID as _UUID
@@ -411,13 +442,7 @@ async def _handle_resume_command(message_text: str, admin_phone: str) -> None:
         return
 
     target_phone = parts[1].lstrip("+")
-
-    result = (
-        db.table("leads")
-        .select("id, name")
-        .eq("phone_number", target_phone)
-        .execute()
-    )
+    result = db.table("leads").select("id, name").eq("phone_number", target_phone).execute()
 
     if not result.data:
         try:
@@ -431,13 +456,15 @@ async def _handle_resume_command(message_text: str, admin_phone: str) -> None:
             pass
         return
 
-    lead = result.data[0]
-    lead_id = lead["id"]
+    lead      = result.data[0]
+    lead_id   = lead["id"]
     lead_name = lead.get("name", "Unknown")
 
     db.table("leads").update({
-        "ai_paused": False,
-        "status":    "PENDING",
+        "ai_paused":      False,
+        "status":         "PENDING",
+        "pressure_level": 0,
+        "objection_type": "",
     }).eq("id", lead_id).execute()
 
     await log.info("LEAD_RESUMED", metadata={"lead_id": lead_id, "phone": target_phone})
